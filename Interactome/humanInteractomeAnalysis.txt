@@ -1,0 +1,3 @@
+# proteins 10215
+# interactions 42351
+

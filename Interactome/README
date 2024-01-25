@@ -37,7 +37,7 @@ I 2024-01-23 17:30:14: Interaction_parser.py - ALL DONE, completed successfully!
 
 ## Build high-quality interactome
 	# First create .tsv with columns ['GENE, 'ENSG']
-	run geneName_to_ENSG.ipynb method 1
+	run geneName_to_ENSG.ipynb method 1 - not working
 
 python3 ../grexome-TIMC-Secondary/UniProt_Interactome_Data/Build_Interactome.py --inExpFile Exp_Biogrid.tsv Exp_Intact.tsv Exp_Reactome.tsv --inUniProt Uniprot_output.tsv --inCanonicalFile canonicalGenes.tsv > Interactome_human.tsv
 I 2024-01-24 11:42:11: Build_Interactome.py - starting to run
@@ -58,8 +58,9 @@ I 2024-01-24 11:42:14: Build_Interactome.py - ALL DONE, completed successfully!
 	I 2024-01-24 13:47:20: Build_Interactome.py - ALL DONE, completed successfully!	
 	# interactome has 42356 interactions now! (without Reactome it has 31256 interactions - Interactome_human_no_reactome.tsv)
 
-# Prepare candidate genes for infertility
+# Prepare list of candidate genes for infertility
+cp sshMounts/luxor/home/kubicaj/Spz-ExomeSeq_2401/Metadata/candidateGenes_allPhenotypes.xlsx .
 run candidateGenes.ipynb
 
 # Analyze interactome with networkx
-run network.ipynb
+run humanInteractomeAnalysis.ipynb
