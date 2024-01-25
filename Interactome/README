@@ -1,0 +1,65 @@
+# Download grexome-TIMC-Secondary
+git clone git@github.com:manojmw/grexome-TIMC-Secondary.git
+
+# Build interactome
+mkdir data
+cd data
+
+## Download and parse Uniprot data
+wget https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/complete/uniprot_sprot.dat.gz
+gunzip -c uniprot_sprot.dat.gz | python3 grexome-TIMC-Secondary/UniProt_Interactome_Data/Uniprot_parser.py > Uniprot_output.tsv
+started: 23/01/2024 17:20
+finished: 23/01/2024 17:25
+
+## Download PPI data from BioGRID, Intact and Reactome
+wget https://downloads.thebiogrid.org/Download/BioGRID/Latest-Release/BIOGRID-ORGANISM-LATEST.mitab.zip
+unzip BIOGRID-ORGANISM-LATEST.mitab
+
+wget ftp://ftp.ebi.ac.uk/pub/databases/intact/current/psimitab/intact.zip
+unzip intact.zip
+
+wget https://reactome.org/download/current/interactors/reactome.homo_sapiens.interactions.psi-mitab.txt
+
+## Parse BioGRID data
+python3 ../grexome-TIMC-Secondary/UniProt_Interactome_Data/Interaction_parser.py --inInteraction BIOGRID-ORGANISM-Homo_sapiens*.mitab.txt --inUniProt Uniprot_output.tsv > Exp_Biogrid.tsv
+I 2024-01-23 17:26:37: Interaction_parser.py - starting to run
+I 2024-01-23 17:26:46: Interaction_parser.py - ALL DONE, completed successfully!
+
+## Parse Intact data
+python3 ../grexome-TIMC-Secondary/UniProt_Interactome_Data/Interaction_parser.py --inInteraction intact.txt --inUniProt Uniprot_output.tsv > Exp_Intact.tsv
+I 2024-01-23 17:28:10: Interaction_parser.py - starting to run
+I 2024-01-23 17:28:10: Interaction_parser.py - ALL DONE, completed successfully!
+
+## Parse Reactome data
+python3 ../grexome-TIMC-Secondary/UniProt_Interactome_Data/Interaction_parser.py --inInteraction reactome.homo_sapiens.interactions.psi-mitab.txt --inUniProt Uniprot_output.tsv > Exp_Reactome.tsv
+I 2024-01-23 17:30:13: Interaction_parser.py - starting to run
+I 2024-01-23 17:30:14: Interaction_parser.py - ALL DONE, completed successfully!
+
+## Build high-quality interactome
+	# First create .tsv with columns ['GENE, 'ENSG']
+	run geneName_to_ENSG.ipynb method 1
+
+python3 ../grexome-TIMC-Secondary/UniProt_Interactome_Data/Build_Interactome.py --inExpFile Exp_Biogrid.tsv Exp_Intact.tsv Exp_Reactome.tsv --inUniProt Uniprot_output.tsv --inCanonicalFile canonicalGenes.tsv > Interactome_human.tsv
+I 2024-01-24 11:42:11: Build_Interactome.py - starting to run
+I 2024-01-24 11:42:14: Build_Interactome.py - ALL DONE, completed successfully!
+	# interactome has 36 interactions -- why so few?
+	
+	# if created from BioGRID and Intact only, then interactome has 16 interactions
+	python3 ../grexome-TIMC-Secondary/UniProt_Interactome_Data/Build_Interactome.py --inExpFile Exp_Biogrid.tsv Exp_Intact.tsv --inUniProt Uniprot_output.tsv --inCanonicalFile canonicalGenes.tsv > Interactome_human_no_Reactome.tsv
+	I 2024-01-24 11:45:38: Build_Interactome.py - starting to run
+	I 2024-01-24 11:45:41: Build_Interactome.py - ALL DONE, completed successfully!I 2024-01-24 11:45:38: Build_Interactome.py - starting to run
+
+	# SOLUTION: take tsv with ['ENSG', 'GENE'] from Manoj: luxor/home/nthierry/FromManojWagleHome/MultiOmics-ExomeSeq-Phenotype/GTEX_Data/E-MTAB-5214-query-results.tpms.tsv
+	# use geneName_to_ENSG.ipynb to modify it and save to canonicalGenes.tsv
+	# build interactome again
+	run geneName_to_ENSG.ipynb method 2
+	python3 ../grexome-TIMC-Secondary/UniProt_Interactome_Data/Build_Interactome.py --inExpFile Exp_Biogrid.tsv Exp_Intact.tsv Exp_Reactome.tsv --inUniProt Uniprot_output.tsv --inCanonicalFile canonicalGenes.tsv > Interactome_human.tsv
+	I 2024-01-24 13:47:16: Build_Interactome.py - starting to run
+	I 2024-01-24 13:47:20: Build_Interactome.py - ALL DONE, completed successfully!	
+	# interactome has 42356 interactions now! (without Reactome it has 31256 interactions - Interactome_human_no_reactome.tsv)
+
+# Prepare candidate genes for infertility
+run candidateGenes.ipynb
+
+# Analyze interactome with networkx
+run network.ipynb
