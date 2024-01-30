@@ -16,7 +16,9 @@ wget https://downloads.thebiogrid.org/Download/BioGRID/Latest-Release/BIOGRID-OR
 unzip BIOGRID-ORGANISM-LATEST.mitab
 
 wget https://ftp.ebi.ac.uk/pub/databases/intact/current/psimitab/intact.zip
-unzip intact.zip
+unzip -t intact.zip
+	# if ok:  
+	unzip intact.zip
 
 wget https://reactome.org/download/current/interactors/reactome.homo_sapiens.interactions.psi-mitab.txt
 
