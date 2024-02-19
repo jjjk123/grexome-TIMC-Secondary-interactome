@@ -65,3 +65,25 @@ run candidateGenes.ipynb
 
 # Analyze interactome with networkx
 run humanInteractomeAnalysis.ipynb
+
+# test Harmonic Centrality - sum of reciprocal of the shortest path disances to the node from all other nodes
+# HC turns out to be problematic - it doesn't take into account that high-score proteins can be hubs
+# and the other way around - that high-scoring proteins can stick to hubs
+# also it scores to high in small networks
+run test_harmonicCentrality.ipynb
+
+# test Eigenvector Centrality - element of the left eigenvector associated with the adjacency matrix eigenvalue corresponding to the node
+# EVC doesn't take into account any additional information about the known genes (no prior knowledge)
+run test_eigenvectorCentrality.ipynb
+
+# test Katz Centrality - the most promising so far, because it takes into account additional information about the known genes (prior knowledge - beta)
+# and it penalizes contribution from far nodes with alpha^distance
+# However, it turns out to be problematic as well
+run test_katzCentrality.ipynb
+run test_katzCentrality_ENSG00000146223.ipynb
+run test_katzCentrality_leaveOneOut.ipynb
+
+# test a new strategy, ie. score=1 for known genes and score=sum_overOtherNodes(alpha^distance * adjacancy_matrix_element^distance * score_other_node)
+# notebook contains: score for every non-MMAF gene in interactome, new MMAF candidates from RDV 13/02/2024 with bio/med collaborators, 
+#  leave-one-out experiments for known MMAF genes
+run test_newCentrality20240213.ipynb
