@@ -87,3 +87,11 @@ run test_katzCentrality_leaveOneOut.ipynb
 # notebook contains: score for every non-MMAF gene in interactome, new MMAF candidates from RDV 13/02/2024 with bio/med collaborators, 
 #  leave-one-out experiments for known MMAF genes
 run test_newCentrality20240213.ipynb
+
+# created a python script for scoring
+# example usage:
+cd newCentrality_v1
+python newCentrality_v1.py --interactome /home/kubicaj/calc/data/Interactome_human.tsv --causal_genes /home/kubicaj/calc/data/candidateGenesList_MMAF.p --canonical_genes /home/kubicaj/calc/data/canonicalGenes.tsv --new_candidates CLHC1 PHF20 NUSAP1 --phenotype MMAF -o /home/kubicaj/calc/newCentrality
+
+# the above script need improvements in terms of scoring algorithm and calculation efficiency
+# therefore, created a new folder newCentrality_v2 with improved code
