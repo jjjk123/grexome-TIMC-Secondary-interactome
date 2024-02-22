@@ -68,7 +68,7 @@ def calculate_adjacency_matrix_powers(G):
 
     return dict_adjacency
 
-def calculate_scores(G, causal_genes, other_genes, alpha=0.5):
+def calculate_scores(G, causal_genes, alpha=0.5):
     '''
     Calculates the new centrality score for every non-MMAF gene in interactome based on the proximity to causal genes,
     returns a dictionary with structure:
@@ -77,18 +77,31 @@ def calculate_scores(G, causal_genes, other_genes, alpha=0.5):
     ...}
 
     '''
-    candidate_array = np.array([1 if n in causal_genes else 0 for n in G.nodes()])
+    # initialize a vector of elements corresponding to each node in interactome being a causal gene (1) or not (0)
+    causal_genes_array = np.array([1/(alpha * len(causal_genes)) if n in causal_genes else 0 for n in G.nodes()]).reshape(-1, 1)
 
-    scores = np.zeros((len(candidate_array)))
+    scores = np.zeros((len(causal_genes_array))).reshape(-1, 1)
+    norm_factors = np.zeros((len(causal_genes_array))).reshape(-1, 1)
 
+    # iterate over distances
     for d in range(1, 5):
+        # get the adjacancy matrix^d
         A = dict_adjacency.get(d)
-        scores += alpha ** d * A.dot(candidate_array)
 
-    dict_scores = dict(zip(G.nodes(), scores))
-    
-    # sort results from the highest to the lowest scores
+        # calculate scores for each node
+        scores += alpha ** d * A.dot(causal_genes_array)
+
+        # calculate elements of normalization vector
+        norm_factors += (1 / (alpha * len(G.nodes())) * alpha ** d) * np.sum(A, axis=1)
+
+    # normalize scores
+    scores_normalized = np.squeeze(scores / norm_factors)
+
+    # create a dictionary sorted by scores with structure:
+    # {gene (non-causal) : score,}
+    dict_scores = dict(zip(G.nodes(), scores_normalized))
     dict_scores_sorted = dict(sorted(dict_scores.items(), key=lambda v: v[1], reverse=True))
+    dict_scores_sorted = {k: v for k, v in dict_scores_sorted.items() if k not in causal_genes}
 
     return dict_scores_sorted
 
@@ -171,7 +184,7 @@ def score_new_candidates(G, results_df, candidates_list, canonical_genes_df):
     print(f"{percentage_in_interactome}% of candidates are in the interactome")
 
     # merge with canonical_genes_df based on ENSG to get gene names for each candidate
-    results_df = results_df.merge(canonical_genes_df, left_index=True, right_on='ENSG')
+    results_df = canonical_genes_df.merge(results_df, right_index=True, left_on='ENSG')
 
     # sort results from the highest to the lowest scores 
     results_df.sort_values(by='score', inplace=True, ascending=False)
@@ -260,7 +273,7 @@ if __name__ == "__main__":
 
     # calculate new centrality for every non-MMAF gene
     print("Calculating scores")
-    dict_scores_sorted = calculate_scores(G, causal_genes, other_genes, alpha)
+    dict_scores_sorted = calculate_scores(G, causal_genes, alpha)
 
     # calculate distances between each causal and non-causal genePOF
     print("Calculating distances between causal and non-causal genes")
@@ -268,7 +281,7 @@ if __name__ == "__main__":
 
     # get more info about each non-causal gene (degree, causal genes at distance d) and save in pickle format
     result_df = get_gene_info(G, dict_scores_sorted, dict_distances)
-    result_df.to_csv(f"{out_path}/scores_{phenotype}_genes.csv", sep='\t', header=True, index=True)
+    result_df.to_csv(f"{out_path}/scores_{phenotype}_genes.csv", sep='\t', header=True, index=True, index_label='ENSG')
 
     # first, load canonical genes to map gene names to ENSG in score_new_candidates()
     canonical_genes_df = pd.read_csv(path_to_canonical_genes, sep='\t')
