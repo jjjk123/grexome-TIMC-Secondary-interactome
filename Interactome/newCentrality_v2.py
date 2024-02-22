@@ -1,4 +1,6 @@
 import argparse
+import pathlib
+
 from tqdm import tqdm
 
 import pandas as pd
@@ -31,17 +33,17 @@ def load_causal_genes(path):
 
     return causal_genes_list
 
-def get_other_genes(G, causal_genes):
+def get_nonCausal_genes(G, causal_genes):
     '''
     Loads the networkx interactome graph,
     returns a list of all non-causal genes.
     '''
-    other_genes = [n for n in G.nodes() if n not in causal_genes] 
-    return other_genes
+    nonCausal_genes = [n for n in G.nodes() if n not in causal_genes] 
+    return nonCausal_genes
 
 def calculate_adjacency_matrix_powers(G):
     '''
-    Calculates the adjacency matrices to the powers up to longest distance between MMAF and non-MMAF genes for scoring,
+    Calculates the adjacency matrices to the powers up to longest distance between causal and non-causal genes for scoring,
     returns a dictionary to store matrices with structure:
     
     {power : A^power,
@@ -70,7 +72,7 @@ def calculate_adjacency_matrix_powers(G):
 
 def calculate_scores(G, causal_genes, alpha=0.5):
     '''
-    Calculates the new centrality score for every non-MMAF gene in interactome based on the proximity to causal genes,
+    Calculates the new centrality score for every non-causal gene in interactome based on the proximity to causal genes,
     returns a dictionary with structure:
     
     {gene : score,
@@ -105,13 +107,16 @@ def calculate_scores(G, causal_genes, alpha=0.5):
 
     return dict_scores_sorted
 
-def get_gene_info(G, dict_scores_sorted, dict_distances, canonical_genes_df):
+def get_gene_info(G, dict_scores_sorted, canonical_genes_df):
     '''
     Gets more info about each node (degree, candidates at distances).
 
     As input, takes the dictionary with results from calculate_scores(),
     returns a dataframe where each row corresponds to a non-causal gene.
     '''
+
+    dict_distances = get_distances(G, causal_genes, nonCausal_genes)
+
     for n, score in dict_scores_sorted.items():
         dict_scores_sorted[n] = [score, 
                                 G.degree(n), 
@@ -151,9 +156,31 @@ def score_new_candidates(G, results_df, candidates_list):
 
     return df_new_candidates
 
-def get_distances(G, causal_genes, other_genes):
+def plot_results_new_candidates(results_df_new_candidates, phenotype, out_path):
     '''
-    Gets distances between all causal and non-causal genes.
+    Plots the results (a violin plot of scores for all non-causal genes, as well as scores for new candidates),
+    saves a .png in the given path.
+    '''
+
+    # plot scores for all non-causal genes
+    sns.violinplot(data=results_df_new_candidates, y='score')
+    plt.title("Scores of new candidates")
+
+    # plot scores for new candidates
+    for idx, row in results_df_new_candidates.iterrows():
+        gene = row['GENE']
+        score = row['score']
+        plt.plot(score, 'or')
+        plt.text(0, score, s=f"{gene}, {score}")
+    
+    # save plot to png
+    file_name = f"scores_{phenotype}_new_candidate_genes.png"
+    plt.savefig(pathlib.Path(out_path, file_name))
+
+
+def get_distances(G, causal_genes, nonCausal_genes):
+    '''
+    Helper function for get_gene_info() to get distances between all causal and non-causal genes.
     
     As input, takes interactome, list of causal genes and list of non-causal genes,
     returns a dictionary with structure:
@@ -167,8 +194,10 @@ def get_distances(G, causal_genes, other_genes):
     
     dict_distances = {}
 
+    print("Calculating distances between causal and non-causal genes")
+
     # iterate over non-causal genes
-    for source_node in tqdm(other_genes):
+    for source_node in tqdm(nonCausal_genes):
         dict_tmp = {}
 
         # iterate over causal genes
@@ -194,26 +223,6 @@ def causal_genes_at_distance(dict_distances, node, d):
     except:
         return 0
 
-def plot_results_new_candidates(results_df_new_candidates, phenotype, out_path):
-    '''
-    Plots the results (a violin plot of scores for all non-causal genes, as well as scores for new candidates),
-    saves a .png in the given path.
-    '''
-
-    # plot scores for all non-causal genes
-    sns.violinplot(data=results_df_new_candidates, y='score')
-    plt.title("Scores of new candidates")
-
-    # plot scores for new candidates
-    for idx, row in results_df_new_candidates.iterrows():
-        gene = row['GENE']
-        score = row['score']
-        plt.plot(score, 'or')
-        plt.text(0, score, s=f"{gene}, {score}")
-    
-    # save plot to png
-    plt.savefig(out_path + f"/scores_{phenotype}_new_candidate_genes.png")
-
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(
@@ -221,12 +230,12 @@ if __name__ == "__main__":
         description="Calculate new centrality for new candidates of infertility based on the guilt-by-association approach."
     )
 
-    parser.add_argument('--interactome', type=str)
-    parser.add_argument('--causal_genes', type=str)
-    parser.add_argument('--canonical_genes', type=str)
+    parser.add_argument('--interactome', type=pathlib.Path)
+    parser.add_argument('--causal_genes', type=pathlib.Path)
+    parser.add_argument('--canonical_genes', type=pathlib.Path)
     parser.add_argument('--new_candidates', type=str, nargs='+')
     parser.add_argument('--phenotype', type=str)
-    parser.add_argument('-o', '--output_path', type=str)
+    parser.add_argument('-o', '--output_path', type=pathlib.Path)
 
     args = parser.parse_args()
 
@@ -234,7 +243,7 @@ if __name__ == "__main__":
     # phenotype = "MMAF"
 
     # set phenotype
-    phenotype = args.phenotype
+    phenotype = args.phenotype.upper()
 
     # set alpha parameter
     alpha = 0.5
@@ -262,33 +271,31 @@ if __name__ == "__main__":
 
     # get causal and non-causal genes
     causal_genes = load_causal_genes(path_to_causal_genes)
-    other_genes = get_other_genes(G, causal_genes)
+    nonCausal_genes = get_nonCausal_genes(G, causal_genes)
 
-    print(f"Interactome size: {len(G.nodes())}, number of {phenotype} genes in interactome: {len(causal_genes)}")
+    print(f"Interactome size: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges \n Number of {phenotype} genes in interactome: {len(causal_genes)}")
 
-    # calculate adjacency matrices to the powers between MMAF and non-MMAF genes for scoring
+    # calculate adjacency matrices to the powers between causal and non-causal genes for scoring
     print("Calculating adjacency matrix powers for scoring")
     dict_adjacency = calculate_adjacency_matrix_powers(G)
 
-    # calculate new centrality for every non-MMAF gene
+    # calculate new centrality for every non-causal gene
     print("Calculating scores")
     dict_scores_sorted = calculate_scores(G, causal_genes, alpha)
-
-    # calculate distances between each causal and non-causal genePOF
-    print("Calculating distances between causal and non-causal genes")
-    dict_distances = get_distances(G, causal_genes, other_genes)
 
     # get more info about each non-causal gene (degree, causal genes at distance d) and save in pickle format
     # first, load canonical genes to map gene names to ENSG in score_new_candidates()
     canonical_genes_df = pd.read_csv(path_to_canonical_genes, sep='\t')
 
-    result_df = get_gene_info(G, dict_scores_sorted, dict_distances, canonical_genes_df)
-    result_df.to_csv(f"{out_path}/scores_{phenotype}_genes.csv", sep='\t', header=True, index=False)
+    result_df = get_gene_info(G, dict_scores_sorted, canonical_genes_df)
+    file_name = f"scores_{phenotype}_genes.csv"
+    result_df.to_csv(pathlib.Path(out_path, file_name), sep='\t', header=True, index=False)
 
     # score new candidates
     results_df_new_candidates = score_new_candidates(G, result_df, new_candidates)
     # save results in a .csv file
-    results_df_new_candidates.to_csv(f"{out_path}/scores_{phenotype}_new_candidates.csv", sep='\t', header=True, index=False)
+    file_name = f"scores_{phenotype}_new_candidates.csv"
+    results_df_new_candidates.to_csv(pathlib.Path(out_path, file_name), sep='\t', header=True, index=False)
 
     # plot scores of new candidates and save figure
     plot_results_new_candidates(results_df_new_candidates, phenotype, out_path=out_path)
