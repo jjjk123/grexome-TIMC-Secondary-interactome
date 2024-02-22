@@ -105,7 +105,7 @@ def calculate_scores(G, causal_genes, alpha=0.5):
 
     return dict_scores_sorted
 
-def get_gene_info(G, dict_scores_sorted, dict_distances):
+def get_gene_info(G, dict_scores_sorted, dict_distances, canonical_genes_df):
     '''
     Gets more info about each node (degree, candidates at distances).
 
@@ -113,7 +113,7 @@ def get_gene_info(G, dict_scores_sorted, dict_distances):
     returns a dataframe where each row corresponds to a non-causal gene.
     '''
     for n, score in dict_scores_sorted.items():
-        dict_scores_sorted[n] = [round(score, 7), 
+        dict_scores_sorted[n] = [score, 
                                 G.degree(n), 
                                 causal_genes_at_distance(dict_distances, n, 1), 
                                 causal_genes_at_distance(dict_distances, n, 2),
@@ -125,11 +125,35 @@ def get_gene_info(G, dict_scores_sorted, dict_distances):
                                 orient='index', 
                                 columns=['score', 'degree', 'candidates at d=1', 'candidates at d=2', 'candidates at d=3', 'candidates at d=4'])
 
-    return df
+    # merge with canonical_genes_df based on ENSG to get gene names for each candidate
+    results_df = canonical_genes_df.merge(df, right_index=True, left_on='ENSG')
+
+    # sort results from the highest to the lowest scores 
+    results_df.sort_values(by='score', inplace=True, ascending=False)
+    results_df.reset_index(inplace=True, drop=True)
+    
+    return results_df
+
+def score_new_candidates(G, results_df, candidates_list):
+    '''
+    As input, takes interactome, dataframe with scoring results from get_gene_info(), list of new candidates and dataframe with canonical genes.
+
+    Finds candidates in the dataframe with scoring results from get_gene_info() and retrieves their information,
+    returns a dataframe where each row corresponds to a candidate.
+    '''
+    
+    # finds rows in the results dataframe corresponding to candidates
+    df_new_candidates = results_df[results_df['GENE'].isin(candidates_list)]
+
+    # check what percentage of new candidates is in interactome
+    percentage_in_interactome = len(df_new_candidates.index) / len(candidates_list)
+    print(f"{percentage_in_interactome}% of candidates in the interactome")
+
+    return df_new_candidates
 
 def get_distances(G, causal_genes, other_genes):
     '''
-    Gets distances between all MMAF and non-MMAF genes.
+    Gets distances between all causal and non-causal genes.
     
     As input, takes interactome, list of causal genes and list of non-causal genes,
     returns a dictionary with structure:
@@ -169,31 +193,6 @@ def causal_genes_at_distance(dict_distances, node, d):
         return len([dist for dist in dict_distances.get(node).values() if dist == d])
     except:
         return 0
-
-def score_new_candidates(G, results_df, candidates_list, canonical_genes_df):
-    '''
-    As input, takes interactome, dataframe with scoring results from get_gene_info(), list of new candidates and dataframe with canonical genes.
-
-    Finds candidates in the dataframe with scoring results from get_gene_info() and retrieves their information,
-    returns a dataframe where each row corresponds to a candidate.
-    '''
-    dict_new_candidates = dict([(gene, canonical_genes_df[canonical_genes_df['GENE'] == gene]['ENSG'].values[0]) for gene in candidates_list])
-
-    # check what percentage of new candidates is in interactome
-    percentage_in_interactome = len([nc for nc in dict_new_candidates.values() if nc in G.nodes()]) / len(dict_new_candidates.values())
-    print(f"{percentage_in_interactome}% of candidates are in the interactome")
-
-    # merge with canonical_genes_df based on ENSG to get gene names for each candidate
-    results_df = canonical_genes_df.merge(results_df, right_index=True, left_on='ENSG')
-
-    # sort results from the highest to the lowest scores 
-    results_df.sort_values(by='score', inplace=True, ascending=False)
-    results_df.reset_index(inplace=True, drop=True)
-
-    # finds rows in the results dataframe corresponding to candidates
-    df_new_candidates = results_df[results_df['ENSG'].isin(dict_new_candidates.values())]
-
-    return df_new_candidates
 
 def plot_results_new_candidates(results_df_new_candidates, phenotype, out_path):
     '''
@@ -280,13 +279,14 @@ if __name__ == "__main__":
     dict_distances = get_distances(G, causal_genes, other_genes)
 
     # get more info about each non-causal gene (degree, causal genes at distance d) and save in pickle format
-    result_df = get_gene_info(G, dict_scores_sorted, dict_distances)
-    result_df.to_csv(f"{out_path}/scores_{phenotype}_genes.csv", sep='\t', header=True, index=True, index_label='ENSG')
-
     # first, load canonical genes to map gene names to ENSG in score_new_candidates()
     canonical_genes_df = pd.read_csv(path_to_canonical_genes, sep='\t')
+
+    result_df = get_gene_info(G, dict_scores_sorted, dict_distances, canonical_genes_df)
+    result_df.to_csv(f"{out_path}/scores_{phenotype}_genes.csv", sep='\t', header=True, index=False)
+
     # score new candidates
-    results_df_new_candidates = score_new_candidates(G, result_df, new_candidates, canonical_genes_df)
+    results_df_new_candidates = score_new_candidates(G, result_df, new_candidates)
     # save results in a .csv file
     results_df_new_candidates.to_csv(f"{out_path}/scores_{phenotype}_new_candidates.csv", sep='\t', header=True, index=False)
 
