@@ -1,16 +1,16 @@
 import argparse
 import pathlib
 
-from tqdm import tqdm
+import tqdm
 
-import pandas as pd
-import scipy as sp
-import numpy as np
+import pandas
+import scipy
+import numpy
 
-import networkx as nx
+import networkx
 
-import matplotlib.pyplot as plt
-import seaborn as sns
+import matplotlib.pyplot
+import seaborn
 
 
 def load_interactome(path):
@@ -18,8 +18,8 @@ def load_interactome(path):
     Loads an interactome .tsv file generated with grexome-TIMC-interactome,
     returns a networkx interactome graph.
     '''
-    interactome_df = pd.read_csv(path, sep='\t', header=None)
-    G = nx.from_pandas_edgelist(interactome_df, 0, 1, edge_attr=True)
+    interactome_df = pandas.read_csv(path, sep='\t', header=None)
+    G = networkx.from_pandas_edgelist(interactome_df, 0, 1, edge_attr=True)
     return G
 
 
@@ -28,7 +28,7 @@ def load_causal_genes(path):
     Loads a list (.p pickle file) of genes causal for the given phenotype,
     returns a list of causal genes.
     '''
-    causal_genes = pd.read_pickle(path)
+    causal_genes = pandas.read_pickle(path)
     causal_genes_list = list(set([c for c in causal_genes if c in G.nodes()]))
 
     return causal_genes_list
@@ -53,19 +53,19 @@ def calculate_adjacency_matrix_powers(G):
     dict_adjacency = {}
 
     # get A to the power of 1
-    A = nx.adjacency_matrix(G)
-    A_sparse = sp.sparse.csc_matrix(A, dtype=bool)
+    A = networkx.adjacency_matrix(G)
+    A_sparse = scipy.sparse.csc_matrix(A, dtype=bool)
     dict_adjacency[1] = A_sparse
 
     # get A to the power of 2
     res = A_sparse.dot(A_sparse)
-    res_sparse = sp.sparse.csc_matrix(res, dtype=bool)
+    res_sparse = scipy.sparse.csc_matrix(res, dtype=bool)
     dict_adjacency[2] = res_sparse
 
     # get A to the powers of up to 4
-    for power in tqdm(range(3, 5)):
+    for power in tqdm.tqdm(range(3, 5)):
         res = res.dot(A_sparse)
-        res_sparse = sp.sparse.csc_matrix(res, dtype=bool)
+        res_sparse = scipy.sparse.csc_matrix(res, dtype=bool)
         dict_adjacency[power] = res_sparse
 
     return dict_adjacency
@@ -80,10 +80,10 @@ def calculate_scores(G, causal_genes, alpha=0.5):
 
     '''
     # initialize a vector of elements corresponding to each node in interactome being a causal gene (1) or not (0)
-    causal_genes_array = np.array([1/(alpha * len(causal_genes)) if n in causal_genes else 0 for n in G.nodes()]).reshape(-1, 1)
+    causal_genes_array = numpy.array([1/(alpha * len(causal_genes)) if n in causal_genes else 0 for n in G.nodes()]).reshape(-1, 1)
 
-    scores = np.zeros((len(causal_genes_array))).reshape(-1, 1)
-    norm_factors = np.zeros((len(causal_genes_array))).reshape(-1, 1)
+    scores = numpy.zeros((len(causal_genes_array))).reshape(-1, 1)
+    norm_factors = numpy.zeros((len(causal_genes_array))).reshape(-1, 1)
 
     # iterate over distances
     for d in range(1, 5):
@@ -94,10 +94,10 @@ def calculate_scores(G, causal_genes, alpha=0.5):
         scores += alpha ** d * A.dot(causal_genes_array)
 
         # calculate elements of normalization vector
-        norm_factors += (1 / (alpha * len(G.nodes())) * alpha ** d) * np.sum(A, axis=1)
+        norm_factors += (1 / (alpha * len(G.nodes())) * alpha ** d) * numpy.sum(A, axis=1)
 
     # normalize scores
-    scores_normalized = np.squeeze(scores / norm_factors)
+    scores_normalized = numpy.squeeze(scores / norm_factors)
 
     # create a dictionary sorted by scores with structure:
     # {gene (non-causal) : score,}
@@ -126,7 +126,7 @@ def get_gene_info(G, dict_scores_sorted, canonical_genes_df):
                                 causal_genes_at_distance(dict_distances, n, 4)
                                 ]
 
-    df = pd.DataFrame.from_dict(dict_scores_sorted, 
+    df = pandas.DataFrame.from_dict(dict_scores_sorted, 
                                 orient='index', 
                                 columns=['score', 'degree', 'candidates at d=1', 'candidates at d=2', 'candidates at d=3', 'candidates at d=4'])
 
@@ -163,19 +163,19 @@ def plot_results_new_candidates(results_df_new_candidates, phenotype, out_path):
     '''
 
     # plot scores for all non-causal genes
-    sns.violinplot(data=results_df_new_candidates, y='score')
-    plt.title("Scores of new candidates")
+    seaborn.violinplot(data=results_df_new_candidates, y='score')
+    matplotlib.pyplot.title("Scores of new candidates")
 
     # plot scores for new candidates
     for idx, row in results_df_new_candidates.iterrows():
         gene = row['GENE']
         score = row['score']
-        plt.plot(score, 'or')
-        plt.text(0, score, s=f"{gene}, {score}")
+        matplotlib.pyplot.plot(score, 'or')
+        matplotlib.pyplot.text(0, score, s=f"{gene}, {score}")
     
     # save plot to png
     file_name = f"scores_{phenotype}_new_candidate_genes.png"
-    plt.savefig(pathlib.Path(out_path, file_name))
+    matplotlib.pyplot.savefig(pathlib.Path(out_path, file_name))
 
 
 def get_distances(G, causal_genes, nonCausal_genes):
@@ -197,14 +197,14 @@ def get_distances(G, causal_genes, nonCausal_genes):
     print("Calculating distances between causal and non-causal genes")
 
     # iterate over non-causal genes
-    for source_node in tqdm(nonCausal_genes):
+    for source_node in tqdm.tqdm(nonCausal_genes):
         dict_tmp = {}
 
         # iterate over causal genes
         for target_node in causal_genes:
             try:
                 # get distance
-                distance = nx.shortest_path_length(G, source_node, target_node)
+                distance = networkx.shortest_path_length(G, source_node, target_node)
 
                 dict_tmp[target_node] = distance
             except:
@@ -285,7 +285,7 @@ if __name__ == "__main__":
 
     # get more info about each non-causal gene (degree, causal genes at distance d) and save in pickle format
     # first, load canonical genes to map gene names to ENSG in score_new_candidates()
-    canonical_genes_df = pd.read_csv(path_to_canonical_genes, sep='\t')
+    canonical_genes_df = pandas.read_csv(path_to_canonical_genes, sep='\t')
 
     result_df = get_gene_info(G, dict_scores_sorted, canonical_genes_df)
     file_name = f"scores_{phenotype}_genes.csv"
