@@ -39,38 +39,60 @@ PHENOTYPE = "MMAF"
 # set alpha parameter, type=float
 ALPHA = 0.5
 
-'''
-Step 1. Load data
-'''
-# load an interactome .tsv file generated with grexome-TIMC-interactome to 2D numpy array of size=(number of interactions, 3), dtype=str
-# each row in the .tsv file should be:
-#  gene1  gene2   1
-interactome = numpy.genfromtxt("./data/Interactome_human.tsv", delimiter='\t', dtype=str)
 
-# initialize networkx graph object
-G = networkx.Graph()
+def loadInteractome(interactomeFile):
+    '''
+    Args:
+    - interactomeFile: filename (with path) to TSV file with 3 columns: gene1 gene2 1
+    Returns (interactome, genes):
+    - interactome: networkx.Graph object representing the interactions in interactomeFile
+    - genes: dict, key == gene in interactome, value == 0
+    '''
+    # load an interactome .tsv file generated with grexome-TIMC-interactome to 2D numpy array of size=(number of interactions, 3), dtype=str
+    # each row in the .tsv file should be:
+    #  gene1  gene2   1
+    interactomeTmp = numpy.genfromtxt("./data/Interactome_human.tsv", delimiter='\t', dtype=str)
 
-# iterate over rows of the interactome numpy array
-for row in interactome:
+    # initialize networkx graph object
+    interactome = networkx.Graph()
 
-    # unpack row values (gene1, gene2, 1) to variables
-    gene1, gene2, interaction = row
+    genes = {}
 
-    # add edges (interactions) to the networkx graph object based on each row (interaction) in interactome numpy array
-    G.add_edge(gene1, gene2)
+    # iterate over rows of the interactome numpy array
+    for row in interactomeTmp:
+        # unpack row values (gene1, gene2, 1) to variables
+        gene1, gene2, interaction = row
+        # add edges (interactions) to the networkx graph object based on each row (interaction) in interactome numpy array
+        interactome.add_edge(gene1, gene2)
+        genes[gene1] = 0
+        genes[gene2] = 0
+
+    return(interactome, genes)
 
 
-# load a causal list .p (pickle) file generated with causalGenes.ipynb to 1D numpy array of size=(number of causal genes), dtype=str
-causal_genes = numpy.load(f"./data/causalGenesList_{PHENOTYPE}.p", allow_pickle=True)
+def loadCausal(causalFile, phenotype, genes):
+    '''
+    Args
 
-# create a list of unique causal gene names from the causal gene numpy array if present in the interactome, dtype=str
-causal_genes = list(set([c for c in causal_genes if c in G.nodes()]))
+    Returns gene2causal: dict, initially a copy of genes, where any gene marked causal for
+    the phenotype in causalFile gets value 1 instead of 0
+    '''
+    gene2causal = genes.copy()
 
-# create a list of size=(number of non-causal genes) to store non-causal gene names, dtype=str
-nonCausal_genes = [n for n in G.nodes() if n not in causal_genes]
+    # TODO: should be parsing causalFile and using phenotype here instead of this causal_genes
+    # load a causal list .p (pickle) file generated with causalGenes.ipynb to 1D numpy array of size=(number of causal genes), dtype=str
+    causal_genes = numpy.load(f"./data/causalGenesList_{PHENOTYPE}.p", allow_pickle=True)
+
+    for c in causal_genes:
+        if c in gene2causal:
+            gene2causal[c] = 1
+
+    return(gene2causal)
+
 
 # print interactome information (number of nodes, number of edges, number of causal genes)
-print(f"Interactome size: {G.number_of_nodes()} nodes, {G.number_of_edges()}, number of {PHENOTYPE} candidates in interactome: {len(causal_genes)}")
+# print(f"Interactome size: {G.number_of_nodes()} nodes, {G.number_of_edges()}, number of {PHENOTYPE} candidates in interactome: {len(causal_genes)}")
+
 
 '''
 Step 2. Calculate distances between causal and non-causal genes
