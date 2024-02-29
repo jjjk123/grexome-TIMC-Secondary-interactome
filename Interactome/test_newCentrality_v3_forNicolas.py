@@ -1,5 +1,8 @@
+import logging
+
 import numpy
 import scipy
+import sys
 
 import pandas
 
@@ -10,7 +13,15 @@ import seaborn
 
 import tqdm
 
+# set up logger, using inherited config, in case we get called as a module
+logger = logging.getLogger(__name__)
 
+
+###############################################################################
+############################ PRIVATE FUNCTIONS ################################
+###############################################################################
+
+####################################################
 def causal_genes_at_distance(dict_distances, node, d):
     '''
     Calculates the number of causal genes from a node of interest at the given distance d.
@@ -235,3 +246,24 @@ matplotlib.pyplot.title("New centrality scores vs. node degree")
 
 # save the plot to .png file in the same directory as the script
 matplotlib.pyplot.savefig("./test_newCentrality_v3_forNicolas.png")
+
+
+
+####################################################################################
+######################################## Main ######################################
+####################################################################################
+if __name__ == '__main__':
+    scriptName = os.path.basename(sys.argv[0])
+    # configure logging, sub-modules will inherit this config
+    logging.basicConfig(format='%(asctime)s %(levelname)s %(name)s: %(message)s',
+                        datefmt='%Y-%m-%d %H:%M:%S',
+                        level=logging.DEBUG)
+    # set up logger: we want script name rather than 'root'
+    logger = logging.getLogger(scriptName)
+
+    try:
+        main(sys.argv)
+    except Exception as e:
+        # details on the issue should be in the exception name, print it to stderr and die
+        sys.stderr.write("ERROR in " + scriptName + " : " + repr(e) + "\n")
+        sys.exit(1)
