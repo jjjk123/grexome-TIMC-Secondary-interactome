@@ -22,29 +22,6 @@ logger = logging.getLogger(__name__)
 ###############################################################################
 
 ####################################################
-def causal_genes_at_distance(dict_distances, node, d):
-    '''
-    Calculates the number of causal genes from a node of interest at the given distance d.
-
-    Arguments:
-        - dict_distances: dictionary with structure
-                            {node (non-causal):
-                                {node (causal): distance
-                                ...}
-                            ...}
-        - node: name of the node of interest, type=str
-        - d: distance of interest, type=int
-
-    Returns
-        - the number of causal genes from the node of interest at the given distance d, type=int
-    '''
-    try:
-        return len([dist for dist in dict_distances.get(node).values() if dist == d])
-    except Exception:
-        return 0
-
-
-####################################################
 def parseInteractome(interactomeFile):
     '''
     Args:
@@ -104,6 +81,30 @@ def parseCausal(causalFile, phenotype, genes):
     return(gene2causal)
 
 
+####################################################
+def causal_genes_at_distance(dict_distances, node, d):
+    '''
+    Calculates the number of causal genes from a node of interest at the given distance d.
+
+    Arguments:
+        - dict_distances: dictionary with structure
+                            {node (non-causal):
+                                {node (causal): distance
+                                ...}
+                            ...}
+        - node: name of the node of interest, type=str
+        - d: distance of interest, type=int
+
+    Returns
+        - the number of causal genes from the node of interest at the given distance d, type=int
+    '''
+    try:
+        return len([dist for dist in dict_distances.get(node).values() if dist == d])
+    except Exception:
+        return 0
+
+
+####################################################
 # print interactome information (number of nodes, number of edges, number of causal genes)
 # print(f"Interactome size: {G.number_of_nodes()} nodes, {G.number_of_edges()}, number of {PHENOTYPE} candidates in interactome: {len(causal_genes)}")
 
