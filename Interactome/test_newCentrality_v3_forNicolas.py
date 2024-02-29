@@ -44,12 +44,6 @@ def causal_genes_at_distance(dict_distances, node, d):
         return 0
 
 
-# set phenotype name to choose from ["MMAF", "NOA", "OG"], type=str
-PHENOTYPE = "MMAF"
-
-# set alpha parameter, type=float
-ALPHA = 0.5
-
 
 def loadInteractome(interactomeFile):
     '''
@@ -103,6 +97,16 @@ def loadCausal(causalFile, phenotype, genes):
 
 # print interactome information (number of nodes, number of edges, number of causal genes)
 # print(f"Interactome size: {G.number_of_nodes()} nodes, {G.number_of_edges()}, number of {PHENOTYPE} candidates in interactome: {len(causal_genes)}")
+
+
+# set phenotype name to choose from ["MMAF", "NOA", "OG"], type=str
+PHENOTYPE = "MMAF"
+
+# set alpha parameter, type=float
+ALPHA = 0.5
+
+
+interactomeFile = "./data/Interactome_human.tsv"
 
 
 '''
