@@ -44,30 +44,37 @@ def causal_genes_at_distance(dict_distances, node, d):
         return 0
 
 
-
-def loadInteractome(interactomeFile):
+####################################################
+def parseInteractome(interactomeFile):
     '''
     Args:
-    - interactomeFile: filename (with path) to TSV file with 3 columns: gene1 gene2 1
+    - interactomeFile: filename (with path) to interactions in Cytoscape SIF format, ie TSV
+      with 3 columns: gene1 type gene2, type is ignored here
     Returns (interactome, genes):
-    - interactome: networkx.Graph object representing the interactions in interactomeFile
+    - interactome: networkx.Graph object representing the interactions, self-interactions excluded
     - genes: dict, key == gene in interactome, value == 0
     '''
-    # load an interactome .tsv file generated with grexome-TIMC-interactome to 2D numpy array of size=(number of interactions, 3), dtype=str
-    # each row in the .tsv file should be:
-    #  gene1  gene2   1
-    interactomeTmp = numpy.genfromtxt("./data/Interactome_human.tsv", delimiter='\t', dtype=str)
-
-    # initialize networkx graph object
+    # to return
     interactome = networkx.Graph()
-
     genes = {}
 
-    # iterate over rows of the interactome numpy array
-    for row in interactomeTmp:
-        # unpack row values (gene1, gene2, 1) to variables
-        gene1, gene2, interaction = row
-        # add edges (interactions) to the networkx graph object based on each row (interaction) in interactome numpy array
+    try:
+        interactomeFH = open(interactomeFile, "r")
+    except Exception as e:
+        logger.error("Opening provided SIF interactome file %s: %s", interactomeFile, e)
+        raise Exception("cannot open provided interactome file")
+
+    for line in interactomeFH:
+        splitLine = line.rstrip().split("\t")
+        if len(splitLine) != 3:
+            logger.error("SIF file %s has bad line (not 3 tab-separated fields): %s", interactomeFile, line)
+            raise Exception("bad line in interactome file")
+
+        (gene1, intType, gene2) = splitLine
+        # ignore self-interactions
+        if gene1 == gene2:
+            continue
+        # else: populate structures
         interactome.add_edge(gene1, gene2)
         genes[gene1] = 0
         genes[gene2] = 0
@@ -75,9 +82,11 @@ def loadInteractome(interactomeFile):
     return(interactome, genes)
 
 
-def loadCausal(causalFile, phenotype, genes):
+####################################################
+def parseCausal(causalFile, phenotype, genes):
     '''
     Args
+    - ??? not sure what we really need
 
     Returns gene2causal: dict, initially a copy of genes, where any gene marked causal for
     the phenotype in causalFile gets value 1 instead of 0
