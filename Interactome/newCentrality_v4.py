@@ -112,7 +112,7 @@ def parse_causal_genes(causal_genes_file, canonical_genes_file, genes) -> dict:
             continue
         
         # populate structures
-        # NOTE: hardcoded pathology - to remove
+        # NOTE: pathology hardcoded
         if pathology == "MMAF":
             causal_genes[ENSG] = 1
 
@@ -121,13 +121,14 @@ def parse_causal_genes(causal_genes_file, canonical_genes_file, genes) -> dict:
     return causal_genes
 
 
-def calculate_scores(interactome, causal_genes, alpha=0.5):
+def calculate_scores(interactome, causal_genes, alpha=0.5) -> dict:
     '''
     Calculates scores for every gene in the interactome based on the proximity to causal genes.
 
     arguments:
     - interactome: type=networkx.Graph
     - causal_genes: dict with key=gene, value=1 if causal, 0 otherwise
+    NOTE: alpha hardcoded
 
     returns:
     - scores: dict with key=gene, value=score
@@ -150,13 +151,13 @@ def calculate_scores(interactome, causal_genes, alpha=0.5):
     res.setdiag(0)
     adjacency_matrices[2] = res
 
-    for power in range(2, 4):
+    for power in range(2, 5):
         res = res @ A
         res.setdiag(0)
         adjacency_matrices[power] = res
 
     # calculate normalized scores
-    for d in range(1, 3):
+    for d in range(1, 5):
         A = adjacency_matrices.get(d)
 
         # numpy.dot is not aware of sparse arrays, todense() should be used
@@ -171,7 +172,24 @@ def calculate_scores(interactome, causal_genes, alpha=0.5):
     return scores
 
 
-def main(interactome_file, causal_genes_file, canonical_genes_file):
+def scores_to_TSV(scores, out_path):
+    '''
+    Save scoring results to a TSV file with 2 columns: gene, score.
+
+    arguments:
+    - scores: dict with key=gene, value=score
+    - out_path: path to save TSV, type=pathlib.Path
+    '''
+
+    out_file = out_path / "scores.tsv"
+    f = open(out_file, 'w+')
+
+    for node, score in scores.items():
+        f.write(str(node) + '\t' + str(score) + '\n')
+
+    f.close()
+
+def main(interactome_file, causal_genes_file, canonical_genes_file, out_path):
 
     interactome, genes = parse_interactome(interactome_file)
 
@@ -179,7 +197,8 @@ def main(interactome_file, causal_genes_file, canonical_genes_file):
 
     scores = calculate_scores(interactome, causal_genes)
 
-    # print(scores)
+    scores_to_TSV(scores, out_path)
+
 
 if __name__ == "__main__":
     script_name = os.path.basename(sys.argv[0])
@@ -200,14 +219,15 @@ if __name__ == "__main__":
     parser.add_argument('--canonical_genes_file', type=pathlib.Path)
     # parser.add_argument('--new_candidates', type=str, nargs='+')
     # parser.add_argument('--phenotype', type=str)
-    # parser.add_argument('-o', '--output_path', type=pathlib.Path)
+    parser.add_argument('-o', '--out_path', type=pathlib.Path)
 
     args = parser.parse_args()
 
     try:
         main(interactome_file=args.interactome_file,
              causal_genes_file=args.causal_genes_file,
-             canonical_genes_file=args.canonical_genes_file)
+             canonical_genes_file=args.canonical_genes_file,
+             out_path=args.out_path)
     except Exception as e:
         # details on the issue should be in the exception name, print it to stderr and die
         sys.stderr.write("ERROR in " + script_name + " : " + repr(e) + "\n")
