@@ -30,9 +30,8 @@ def parse_interactome(interactome_file) -> tuple[networkx.Graph, dict]:
     
     returns:
     - interactome: type=networkx.Graph
-    - genes: dictionary with key=gene value=0, type=dict
+    - genes: dict with key=gene value=0
     '''
-
     interactome = networkx.Graph()
     genes = {}
 
@@ -71,10 +70,10 @@ def parse_causal_genes(causal_genes_file, canonical_genes_file, genes) -> dict:
     - canonical_genes_file: path to canonical genes, type=pathlib.Path
       with 2 columns: gene_name, ENSG
     - pathology: phenotype for which to get the causal genes, type=str
-    - genes: dictionary with key=gene value=0, type=dict
+    - genes: dict with key=gene, value=0
     
     returns:
-    - causal_genes: dictionary with key=gene, value=1 if causal, 0 otherwise, type=dict
+    - causal_genes: dict with key=gene, value=1 if causal, 0 otherwise
     '''
     causal_genes = genes.copy()
     canonical_genes = {}
@@ -111,10 +110,14 @@ def parse_causal_genes(causal_genes_file, canonical_genes_file, genes) -> dict:
 
         gene_name, pathology = line_splitted
 
-        # gene_name -> ENSG
-        ENSG = canonical_genes.get(gene_name)
+        # map gene names to ENSGs
+        if gene_name in canonical_genes.keys():
+            ENSG = canonical_genes.get(gene_name)
+        else:
+            continue
         
         # populate structures
+        # NOTE: hardcoded pathology - to remove
         if pathology == "MMAF":
             causal_genes[ENSG] = 1
 
@@ -123,197 +126,181 @@ def parse_causal_genes(causal_genes_file, canonical_genes_file, genes) -> dict:
     return causal_genes
 
 
-def calculate_adjacency_matrix_powers(G):
+def calculate_scores(interactome, causal_genes, alpha=0.5):
     '''
-    Calculates the adjacency matrices to the powers up to longest distance between causal and non-causal genes for scoring,
-    returns a dictionary to store matrices with structure:
+    Calculates scores for every gene in the interactome based on the proximity to causal genes.
+
+    arguments:
+    - interactome: type=networkx.Graph
+    - causal_genes: dict with key=gene, value=1 if causal, 0 otherwise
+
+    returns:
+    - scores: dict with key=gene, value=score
+    '''
+    # 1D numpy array for genes in the interactome: 1 if causal gene, 0 otherwise
+    causal_genes_array = numpy.array([1 if causal_genes.get(n) == 1 else 0 for n in interactome.nodes()])
+
+    scores_array = numpy.zeros((len(causal_genes_array)))
+    norm_factors_array = numpy.zeros((len(causal_genes_array)))
+
+    # initiate dict key=power, value=adjacency_matrix**power
+    adjacency_matrices = {}
+
+    A = networkx.to_scipy_sparse_array(interactome) # returns scipy.sparse._csr.csr_array
+    A.setdiag(0)
+    adjacency_matrices[1] = A
+
+    # @ - matrix multiplication
+    res = A @ A
+    res.setdiag(0)
+    adjacency_matrices[2] = res
+
+    for power in range(2, 4):
+        res = res @ A
+        res.setdiag(0)
+        adjacency_matrices[power] = res
+
+    # calculate normalized scores
+    for d in range(1, 3):
+        A = adjacency_matrices.get(d)
+
+        # numpy.dot is not aware of sparse arrays, todense() should be used
+        scores_array += alpha ** d * numpy.dot(A.todense(), causal_genes_array)
+
+        norm_factors_array += alpha ** d * A.sum(axis=0)
+
+    scores_array_normalized = numpy.squeeze(scores_array / norm_factors_array)
+
+    scores = dict(zip(interactome.nodes(), scores_array_normalized))
+
+    return scores
+
+
+# def get_gene_info(G, dict_scores_sorted, canonical_genes_df):
+#     '''
+#     Gets more info about each node (degree, candidates at distances).
+
+#     As input, takes the dictionary with results from calculate_scores(),
+#     returns a dataframe where each row corresponds to a non-causal gene.
+#     '''
+
+#     dict_distances = get_distances(G, causal_genes, nonCausal_genes)
+
+#     for n, score in dict_scores_sorted.items():
+#         dict_scores_sorted[n] = [score, 
+#                                 G.degree(n), 
+#                                 causal_genes_at_distance(dict_distances, n, 1), 
+#                                 causal_genes_at_distance(dict_distances, n, 2),
+#                                 causal_genes_at_distance(dict_distances, n, 3),
+#                                 causal_genes_at_distance(dict_distances, n, 4)
+#                                 ]
+
+#     df = pandas.DataFrame.from_dict(dict_scores_sorted, 
+#                                 orient='index', 
+#                                 columns=['score', 'degree', 'candidates at d=1', 'candidates at d=2', 'candidates at d=3', 'candidates at d=4'])
+
+#     # merge with canonical_genes_df based on ENSG to get gene names for each candidate
+#     results_df = canonical_genes_df.merge(df, right_index=True, left_on='ENSG')
+
+#     # sort results from the highest to the lowest scores 
+#     results_df.sort_values(by='score', inplace=True, ascending=False)
+#     results_df.reset_index(inplace=True, drop=True)
     
-    {power : A^power,
-    ...}
+#     return results_df
+
+# def score_new_candidates(G, results_df, candidates_list):
+#     '''
+#     As input, takes interactome, dataframe with scoring results from get_gene_info(), list of new candidates and dataframe with canonical genes.
+
+#     Finds candidates in the dataframe with scoring results from get_gene_info() and retrieves their information,
+#     returns a dataframe where each row corresponds to a candidate.
+#     '''
     
-    '''
-    dict_adjacency = {}
+#     # finds rows in the results dataframe corresponding to candidates
+#     df_new_candidates = results_df[results_df['GENE'].isin(candidates_list)]
 
-    # get A to the power of 1
-    A = networkx.adjacency_matrix(G)
-    A_sparse = scipy.sparse.csc_matrix(A, dtype=bool)
-    dict_adjacency[1] = A_sparse
+#     # check what percentage of new candidates is in interactome
+#     percentage_in_interactome = len(df_new_candidates.index) / len(candidates_list)
+#     print(f"{percentage_in_interactome}% of candidates in the interactome")
 
-    # get A to the power of 2
-    res = A_sparse.dot(A_sparse)
-    res_sparse = scipy.sparse.csc_matrix(res, dtype=bool)
-    dict_adjacency[2] = res_sparse
+#     return df_new_candidates
 
-    # get A to the powers of up to 4
-    for power in tqdm.tqdm(range(3, 5)):
-        res = res.dot(A_sparse)
-        res_sparse = scipy.sparse.csc_matrix(res, dtype=bool)
-        dict_adjacency[power] = res_sparse
+# def plot_results_new_candidates(results_df_new_candidates, phenotype, out_path):
+#     '''
+#     Plots the results (a violin plot of scores for all non-causal genes, as well as scores for new candidates),
+#     saves a .png in the given path.
+#     '''
 
-    return dict_adjacency
+#     # plot scores for all non-causal genes
+#     seaborn.violinplot(data=results_df_new_candidates, y='score')
+#     matplotlib.pyplot.title("Scores of new candidates")
 
-def calculate_scores(G, causal_genes, alpha=0.5):
-    '''
-    Calculates the new centrality score for every non-causal gene in interactome based on the proximity to causal genes,
-    returns a dictionary with structure:
+#     # plot scores for new candidates
+#     for idx, row in results_df_new_candidates.iterrows():
+#         gene = row['GENE']
+#         score = row['score']
+#         matplotlib.pyplot.plot(score, 'or')
+#         matplotlib.pyplot.text(0, score, s=f"{gene}, {score}")
     
-    {gene : score,
-    ...}
+#     # save plot to png
+#     file_name = f"scores_{phenotype}_new_candidate_genes.png"
+#     matplotlib.pyplot.savefig(pathlib.Path(out_path, file_name))
 
-    '''
-    # initialize a vector of elements corresponding to each node in interactome being a causal gene (1) or not (0)
-    causal_genes_array = numpy.array([1 if n in causal_genes else 0 for n in G.nodes()])
 
-    scores = numpy.zeros((len(causal_genes_array)))
-    norm_factors = numpy.zeros((len(causal_genes_array)))
-
-    # iterate over distances
-    for d in range(1, 5):
-        # get the adjacancy matrix^d
-        A = dict_adjacency.get(d)
-
-        # calculate scores for each node
-        scores += alpha ** d * A.dot(causal_genes_array)
-
-        # calculate elements of normalization vector
-        for i in range(len(norm_factors)):
-            norm_factors[i] += alpha ** d * A[i, :].sum()
-
-    # normalize scores
-    scores_normalized = numpy.squeeze(scores / norm_factors)
-
-    # create a dictionary sorted by scores with structure:
-    # {gene (non-causal) : score,}
-    dict_scores = dict(zip(G.nodes(), scores_normalized))
-    dict_scores_sorted = dict(sorted(dict_scores.items(), key=lambda v: v[1], reverse=True))
-    dict_scores_sorted = {k: v for k, v in dict_scores_sorted.items() if k not in causal_genes}
-
-    return dict_scores_sorted
-
-def get_gene_info(G, dict_scores_sorted, canonical_genes_df):
-    '''
-    Gets more info about each node (degree, candidates at distances).
-
-    As input, takes the dictionary with results from calculate_scores(),
-    returns a dataframe where each row corresponds to a non-causal gene.
-    '''
-
-    dict_distances = get_distances(G, causal_genes, nonCausal_genes)
-
-    for n, score in dict_scores_sorted.items():
-        dict_scores_sorted[n] = [score, 
-                                G.degree(n), 
-                                causal_genes_at_distance(dict_distances, n, 1), 
-                                causal_genes_at_distance(dict_distances, n, 2),
-                                causal_genes_at_distance(dict_distances, n, 3),
-                                causal_genes_at_distance(dict_distances, n, 4)
-                                ]
-
-    df = pandas.DataFrame.from_dict(dict_scores_sorted, 
-                                orient='index', 
-                                columns=['score', 'degree', 'candidates at d=1', 'candidates at d=2', 'candidates at d=3', 'candidates at d=4'])
-
-    # merge with canonical_genes_df based on ENSG to get gene names for each candidate
-    results_df = canonical_genes_df.merge(df, right_index=True, left_on='ENSG')
-
-    # sort results from the highest to the lowest scores 
-    results_df.sort_values(by='score', inplace=True, ascending=False)
-    results_df.reset_index(inplace=True, drop=True)
+# def get_distances(G, causal_genes, nonCausal_genes):
+#     '''
+#     Helper function for get_gene_info() to get distances between all causal and non-causal genes.
     
-    return results_df
+#     As input, takes interactome, list of causal genes and list of non-causal genes,
+#     returns a dictionary with structure:
 
-def score_new_candidates(G, results_df, candidates_list):
-    '''
-    As input, takes interactome, dataframe with scoring results from get_gene_info(), list of new candidates and dataframe with canonical genes.
+#     {non-causal gene: {causal gene: distance,
+#                         causal gene: distance,
+#                         ...}
+#     ...}
 
-    Finds candidates in the dataframe with scoring results from get_gene_info() and retrieves their information,
-    returns a dataframe where each row corresponds to a candidate.
-    '''
+#     '''
     
-    # finds rows in the results dataframe corresponding to candidates
-    df_new_candidates = results_df[results_df['GENE'].isin(candidates_list)]
+#     dict_distances = {}
 
-    # check what percentage of new candidates is in interactome
-    percentage_in_interactome = len(df_new_candidates.index) / len(candidates_list)
-    print(f"{percentage_in_interactome}% of candidates in the interactome")
+#     print("Calculating distances between causal and non-causal genes")
 
-    return df_new_candidates
+#     # iterate over non-causal genes
+#     for source_node in tqdm.tqdm(nonCausal_genes):
+#         dict_tmp = {}
 
-def plot_results_new_candidates(results_df_new_candidates, phenotype, out_path):
-    '''
-    Plots the results (a violin plot of scores for all non-causal genes, as well as scores for new candidates),
-    saves a .png in the given path.
-    '''
+#         # iterate over causal genes
+#         for target_node in causal_genes:
+#             try:
+#                 # get distance
+#                 distance = networkx.shortest_path_length(G, source_node, target_node)
 
-    # plot scores for all non-causal genes
-    seaborn.violinplot(data=results_df_new_candidates, y='score')
-    matplotlib.pyplot.title("Scores of new candidates")
+#                 dict_tmp[target_node] = distance
+#             except:
+#                 continue
 
-    # plot scores for new candidates
-    for idx, row in results_df_new_candidates.iterrows():
-        gene = row['GENE']
-        score = row['score']
-        matplotlib.pyplot.plot(score, 'or')
-        matplotlib.pyplot.text(0, score, s=f"{gene}, {score}")
-    
-    # save plot to png
-    file_name = f"scores_{phenotype}_new_candidate_genes.png"
-    matplotlib.pyplot.savefig(pathlib.Path(out_path, file_name))
+#         dict_distances[source_node] = dict_tmp
 
+#     return dict_distances
 
-def get_distances(G, causal_genes, nonCausal_genes):
-    '''
-    Helper function for get_gene_info() to get distances between all causal and non-causal genes.
-    
-    As input, takes interactome, list of causal genes and list of non-causal genes,
-    returns a dictionary with structure:
+# def causal_genes_at_distance(dict_distances, node, d):
+#     '''
+#     Helper function for get_gene_info() to calculate the number of causal genes at a distance d from the given gene.
+#     '''
+#     try:
+#         return len([dist for dist in dict_distances.get(node).values() if dist == d])
+#     except:
+#         return 0
 
-    {non-causal gene: {causal gene: distance,
-                        causal gene: distance,
-                        ...}
-    ...}
+def main(interactome_file, causal_genes_file, canonical_genes_file):
 
-    '''
-    
-    dict_distances = {}
-
-    print("Calculating distances between causal and non-causal genes")
-
-    # iterate over non-causal genes
-    for source_node in tqdm.tqdm(nonCausal_genes):
-        dict_tmp = {}
-
-        # iterate over causal genes
-        for target_node in causal_genes:
-            try:
-                # get distance
-                distance = networkx.shortest_path_length(G, source_node, target_node)
-
-                dict_tmp[target_node] = distance
-            except:
-                continue
-
-        dict_distances[source_node] = dict_tmp
-
-    return dict_distances
-
-def causal_genes_at_distance(dict_distances, node, d):
-    '''
-    Helper function for get_gene_info() to calculate the number of causal genes at a distance d from the given gene.
-    '''
-    try:
-        return len([dist for dist in dict_distances.get(node).values() if dist == d])
-    except:
-        return 0
-
-def main(args):
-    interactome_file = args.interactome_file
-    causal_genes_file = args.causal_genes_file
-    canonical_genes_file = args.canonical_genes_file
-    
     interactome, genes = parse_interactome(interactome_file)
+
     causal_genes = parse_causal_genes(causal_genes_file, canonical_genes_file, genes)
-    print(interactome)
+
+    scores = calculate_scores(interactome, causal_genes)
+
+    # print(scores)
 
 if __name__ == "__main__":
     script_name = os.path.basename(sys.argv[0])
@@ -324,7 +311,6 @@ if __name__ == "__main__":
     # set up logger: we want script name rather than 'root'
     logger = logging.getLogger(script_name)
 
-    # parse arguments
     parser = argparse.ArgumentParser(
         prog="newCentrality.py",
         description="Calculate new centrality for new candidates of infertility based on the guilt-by-association approach."
@@ -340,7 +326,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     try:
-        main(args)
+        main(interactome_file=args.interactome_file,
+             causal_genes_file=args.causal_genes_file,
+             canonical_genes_file=args.canonical_genes_file)
     except Exception as e:
         # details on the issue should be in the exception name, print it to stderr and die
         sys.stderr.write("ERROR in " + script_name + " : " + repr(e) + "\n")
