@@ -66,6 +66,7 @@ def parse_causal_genes(causal_genes_file, canonical_genes_file, genes) -> dict:
       with 2 columns: gene_name, ENSG
     - pathology: phenotype for which to get the causal genes, type=str
     - genes: dict with key=gene, value=0
+    NOTE: pathology hardcoded
     
     returns:
     - causal_genes: dict with key=gene, value=1 if causal, 0 otherwise
@@ -112,7 +113,6 @@ def parse_causal_genes(causal_genes_file, canonical_genes_file, genes) -> dict:
             continue
         
         # populate structures
-        # NOTE: pathology hardcoded
         if pathology == "MMAF":
             causal_genes[ENSG] = 1
 
@@ -167,6 +167,7 @@ def calculate_scores(interactome, causal_genes, alpha=0.5) -> dict:
 
     scores_array_normalized = numpy.squeeze(scores_array / norm_factors_array)
 
+    # map ENSGs to scores
     scores = dict(zip(interactome.nodes(), scores_array_normalized))
 
     return scores
