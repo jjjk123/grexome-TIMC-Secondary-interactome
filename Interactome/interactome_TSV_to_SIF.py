@@ -39,7 +39,7 @@ def TSV_to_SIF(interactome_tsv, out_file):
         gene1, gene2, pp = line_splitted
 
         # convert interaction to SIF
-        sif_line = gene1 + '\t' + gene2 + '\t' + "pp\n"
+        sif_line = gene1 + '\t' + "pp" + '\t' + gene2 + '\n' 
         sif_file.write(sif_line)
 
     tsv_file.close()
