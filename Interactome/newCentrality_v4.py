@@ -22,6 +22,8 @@ logger = logging.getLogger(__name__)
 
 def parse_interactome(interactome_file) -> tuple[networkx.Graph, dict]:
     '''
+    Creates a networkx.Graph interactome.
+
     arguments:
     - interactome_file: path to interactome SIF file, type=pathlib.Path
       with 3 columns: gene1 pp gene2
@@ -59,23 +61,67 @@ def parse_interactome(interactome_file) -> tuple[networkx.Graph, dict]:
     return (interactome, genes)
 
 
-def load_causal_genes(path):
+def parse_causal_genes(causal_genes_file, canonical_genes_file, genes) -> dict:
     '''
-    Loads a list (.p pickle file) of genes causal for the given phenotype,
-    returns a list of causal genes.
-    '''
-    causal_genes = pandas.read_pickle(path)
-    causal_genes_list = list(set([c for c in causal_genes if c in G.nodes()]))
+    Creates a dictionary of all genes in the interactome, key=gene, value=1 if causal, 0 otherwise.
 
-    return causal_genes_list
+    arguments:
+    - causal_genes_file: path to known causal genes CSV file, type=pathlib.Path
+      with 2 columns: gene, pathology
+    - canonical_genes_file: path to canonical genes, type=pathlib.Path
+      with 2 columns: gene_name, ENSG
+    - pathology: phenotype for which to get the causal genes, type=str
+    - genes: dictionary with key=gene value=0, type=dict
+    
+    returns:
+    - causal_genes: dictionary with key=gene, value=1 if causal, 0 otherwise, type=dict
+    '''
+    causal_genes = genes.copy()
+    canonical_genes = {}
 
-def get_nonCausal_genes(G, causal_genes):
-    '''
-    Loads the networkx interactome graph,
-    returns a list of all non-causal genes.
-    '''
-    nonCausal_genes = [n for n in G.nodes() if n not in causal_genes] 
-    return nonCausal_genes
+    # first, parse canonical genes
+    try:
+        f_canonical = open(canonical_genes_file, 'r')
+    except Exception as e:
+        logger.error("Opening provided canonical genes file %s: %s", canonical_genes_file, e)
+        raise Exception("cannot open provided canonical genes file")
+
+    # skip header
+    next(f_canonical)
+
+    for line in f_canonical:
+        line_splitted = line.rstrip().split('\t')
+
+        gene_name, ENSG = line_splitted
+        
+        # populate canonical genes dictionary
+        canonical_genes[gene_name] = ENSG
+
+    f_canonical.close()
+
+    # second, parse causal genes
+    try:
+        f_causal = open(causal_genes_file, 'r')
+    except Exception as e:
+        logger.error("Opening provided causal genes file %s: %s", causal_genes_file, e)
+        raise Exception("cannot open provided causal genes file")
+
+    for line in f_causal:
+        line_splitted = line.rstrip().split('\t')
+
+        gene_name, pathology = line_splitted
+
+        # gene_name -> ENSG
+        ENSG = canonical_genes.get(gene_name)
+        
+        # populate structures
+        if pathology == "MMAF":
+            causal_genes[ENSG] = 1
+
+    f_causal.close()
+
+    return causal_genes
+
 
 def calculate_adjacency_matrix_powers(G):
     '''
@@ -261,61 +307,13 @@ def causal_genes_at_distance(dict_distances, node, d):
         return 0
 
 def main(args):
-    # parse arguments
-    
-    # set phenotype
-    phenotype = args.phenotype.upper()
-
-    # set alpha parameter
-    alpha = 0.5
-
-    ## set output path
-    # out_path = "/home/kubicaj/calc/newCentrality"
-    out_path = args.output_path
-
-    # load data
     interactome_file = args.interactome_file
-    path_to_causal_genes = args.causal_genes
-    path_to_canonical_genes = args.canonical_genes
-
-    ## new candidates
-    new_candidates = ['CLHC1', 'PHF20', 'NUSAP1', 'CDC20B', 'FAM221A', 'GALR3', 'LRRC9', 'KIF27', 'ZNF208', 'C6orf118', 'CCDC66', 'CCNA1', 'DDX43', 'FSCB', 'FHAD1', 'LRGUK', 'MYCBPAP', 'MYH7B', 'PCDHB15', 'SAMD15', 'SPACA9', 'SPATA24', 'SPATA6', 'TSSK4', 'TTLL2']
-    # new_candidates = args.new_candidates
-
-    # load interactome to networkx graph
+    causal_genes_file = args.causal_genes_file
+    canonical_genes_file = args.canonical_genes_file
+    
     interactome, genes = parse_interactome(interactome_file)
-
-    # get causal and non-causal genes
-    causal_genes = load_causal_genes(path_to_causal_genes)
-    nonCausal_genes = get_nonCausal_genes(G, causal_genes)
-
-    print(f"Interactome size: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges \n Number of {phenotype} genes in interactome: {len(causal_genes)}")
-
-    # calculate adjacency matrices to the powers between causal and non-causal genes for scoring
-    print("Calculating adjacency matrix powers for scoring")
-    dict_adjacency = calculate_adjacency_matrix_powers(G)
-
-    # calculate new centrality for every non-causal gene
-    print("Calculating scores")
-    dict_scores_sorted = calculate_scores(G, causal_genes, alpha)
-
-    # get more info about each non-causal gene (degree, causal genes at distance d) and save in pickle format
-    # first, load canonical genes to map gene names to ENSG in score_new_candidates()
-    canonical_genes_df = pandas.read_csv(path_to_canonical_genes, sep='\t')
-
-    result_df = get_gene_info(G, dict_scores_sorted, canonical_genes_df)
-    file_name = f"scores_{phenotype}_genes.csv"
-    result_df.to_csv(pathlib.Path(out_path, file_name), sep='\t', header=True, index=False)
-
-    # score new candidates
-    results_df_new_candidates = score_new_candidates(G, result_df, new_candidates)
-    # save results in a .csv file
-    file_name = f"scores_{phenotype}_new_candidates.csv"
-    results_df_new_candidates.to_csv(pathlib.Path(out_path, file_name), sep='\t', header=True, index=False)
-
-    # plot scores of new candidates and save figure
-    plot_results_new_candidates(results_df_new_candidates, phenotype, out_path=out_path)
-
+    causal_genes = parse_causal_genes(causal_genes_file, canonical_genes_file, genes)
+    print(interactome)
 
 if __name__ == "__main__":
     script_name = os.path.basename(sys.argv[0])
@@ -332,12 +330,12 @@ if __name__ == "__main__":
         description="Calculate new centrality for new candidates of infertility based on the guilt-by-association approach."
     )
 
-    parser.add_argument('--interactome_file', type=pathlib.Path)
-    parser.add_argument('--causal_genes', type=pathlib.Path)
-    parser.add_argument('--canonical_genes', type=pathlib.Path)
-    parser.add_argument('--new_candidates', type=str, nargs='+')
-    parser.add_argument('--phenotype', type=str)
-    parser.add_argument('-o', '--output_path', type=pathlib.Path)
+    parser.add_argument('-i', '--interactome_file', type=pathlib.Path)
+    parser.add_argument('--causal_genes_file', type=pathlib.Path)
+    parser.add_argument('--canonical_genes_file', type=pathlib.Path)
+    # parser.add_argument('--new_candidates', type=str, nargs='+')
+    # parser.add_argument('--phenotype', type=str)
+    # parser.add_argument('-o', '--output_path', type=pathlib.Path)
 
     args = parser.parse_args()
 
