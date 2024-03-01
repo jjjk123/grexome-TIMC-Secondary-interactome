@@ -95,3 +95,13 @@ python newCentrality_v1.py --interactome /home/kubicaj/calc/data/Interactome_hum
 
 # the above script needs improvements in terms of scoring algorithm and calculation efficiency
 # therefore, created a new folder newCentrality_v2 with improved code
+# created newCentrality_v3 for the same reasons
+
+# created newCentrality_v4 for the same reasons
+# Previously, git was not used properly (because code editing was done locally, then copied to git repository and then pushed)
+# Now, working only in git repository grexome-TIMC-Seconday-interactome
+# Cleanup: all to old/
+#  keep only newCentrality_v4 and necessary data:
+#	data/(interactome.sif, causal genes, canonical genes)
+#	newCentrality_v4.py
+#	interactome_TSV_to_SIF.py
