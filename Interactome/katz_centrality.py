@@ -5,9 +5,6 @@ import os
 import argparse
 import pathlib
 
-import numpy
-import scipy
-
 import networkx
 
 
@@ -47,7 +44,7 @@ def parse_interactome(interactome_file) -> tuple[networkx.Graph, dict]:
         # exclude self-interactions
         if gene1 == gene2:
             continue
-        # else: ppopulate structures
+        # else: populate structures
         interactome.add_edge(gene1, gene2)
         genes[gene1] = 0
         genes[gene2] = 0
@@ -111,7 +108,7 @@ def parse_causal_genes(causal_genes_file, canonical_genes_file, genes) -> dict:
             ENSG = canonical_genes.get(gene_name)
         else:
             continue
-        
+
         # skip genes not present in the interactome
         if ENSG not in genes:
             continue
@@ -119,60 +116,24 @@ def parse_causal_genes(causal_genes_file, canonical_genes_file, genes) -> dict:
         # populate structures
         if pathology == "MMAF":
             causal_genes[ENSG] = 1
-
+            
     f_causal.close()
 
     return causal_genes
 
 
-def calculate_scores(interactome, causal_genes, alpha=0.5, max_power=5) -> dict:
+def calculate_katz_centrality(interactome, causal_genes) -> dict:
     '''
-    Calculates scores for every gene in the interactome based on the proximity to causal genes.
+    Calculates katz centrality for every gene in the interactome.
 
     arguments:
     - interactome: type=networkx.Graph
     - causal_genes: dict with key=gene, value=1 if causal, 0 otherwise
-    NOTE: alpha hardcoded
 
     returns:
-    - scores: dict with key=gene, value=score
+    - scores: dict with key=gene, value=katz_centrality
     '''
-    # 1D numpy array for genes in the interactome: 1 if causal gene, 0 otherwise, size=len(nodes in interactome)
-    causal_genes_array = numpy.array([1 if causal_genes.get(n) == 1 else 0 for n in interactome.nodes()])
-
-    scores_array = numpy.zeros((len(causal_genes_array)))
-    norm_factors_array = numpy.zeros((len(causal_genes_array)))
-
-    # initiate dict key=power, value=adjacency_matrix**power
-    adjacency_matrices = {}
-
-    A = networkx.to_scipy_sparse_array(interactome) # returns scipy.sparse._csr.csr_array
-    A.setdiag(0)
-    adjacency_matrices[1] = A
-
-    # @ - matrix multiplication
-    res = A @ A
-    res.setdiag(0)
-    adjacency_matrices[2] = res
-
-    for power in range(2, max_power+1):
-        res = res @ A
-        res.setdiag(0)
-        adjacency_matrices[power] = res
-
-    # calculate normalized scores
-    for d in range(1, max_power+1):
-        A = adjacency_matrices.get(d)
-
-        # numpy.dot is not aware of sparse arrays, todense() should be used
-        scores_array += alpha ** d * numpy.dot(A.todense(), causal_genes_array)
-
-        norm_factors_array += alpha ** d * A.sum(axis=0)
-
-    scores_array_normalized = numpy.squeeze(scores_array / norm_factors_array)
-
-    # map ENSGs to scores
-    scores = dict(zip(interactome.nodes(), scores_array_normalized))
+    scores = networkx.katz_centrality(interactome, beta=causal_genes)
 
     return scores
 
@@ -185,11 +146,11 @@ def scores_to_TSV(scores, out_path):
     - scores: dict with key=gene, value=score
     - out_path: path to save TSV, type=pathlib.Path
     '''
-    out_file = out_path / "scores.tsv"
+    out_file = out_path / "katz_centrality.tsv"
     f = open(out_file, 'w+')
 
     # file header
-    f.write("node" + "\t" + "score" + '\n')
+    f.write("node\t" + "HC" + '\n')
 
     for node, score in scores.items():
         f.write(str(node) + '\t' + str(score) + '\n')
@@ -204,11 +165,11 @@ def main(interactome_file, causal_genes_file, canonical_genes_file, out_path):
     logger.info("Parsing causal genes")
     causal_genes = parse_causal_genes(causal_genes_file, canonical_genes_file, genes)
 
-    logger.info("Calculating scores")
-    scores = calculate_scores(interactome, causal_genes)
+    logger.info("Calculating katz centrality")
+    katz_centrality = calculate_katz_centrality(interactome, causal_genes)
 
     logger.info("Done!")
-    scores_to_TSV(scores, out_path)
+    scores_to_TSV(katz_centrality, out_path)
 
 
 if __name__ == "__main__":
@@ -222,7 +183,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(
         prog="newCentrality.py",
-        description="Calculate new centrality for new candidates of infertility based on the guilt-by-association approach."
+        description="Calculate katz centrality for new candidates of infertility based on the guilt-by-association approach."
     )
 
     parser.add_argument('-i', '--interactome_file', type=pathlib.Path)

@@ -107,4 +107,4 @@ python newCentrality_v1.py --interactome /home/kubicaj/calc/data/Interactome_hum
 #	interactome_TSV_to_SIF.py
 #
 # example use:
-# python newCentrality_v4.py -i data/Interactome_human.sif --causal_genes_file data/causalGenes_allPhenotypes.csv --canonical_genes_file data/canonicalGenes.tsv
+# python newCentrality_v4.py -i data/Interactome_human.sif --causal_genes_file data/causalGenes_allPhenotypes.csv --canonical_genes_file data/canonicalGenes.tsv -o .
