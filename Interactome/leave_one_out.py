@@ -7,9 +7,7 @@ import multiprocessing
 import argparse
 import pathlib
 
-import numpy
-
-from newCentrality_v4 import parse_interactome, parse_causal_genes, get_adjacency_matrices, calculate_scores
+from newCentrality_v4 import parse_interactome, parse_causal_genes, get_adjacency_matrices, calculate_scores, scores_to_TSV
 
 
 def leave_one_out(interactome, causal_genes, out_path):
@@ -38,27 +36,7 @@ def leave_one_out(interactome, causal_genes, out_path):
         scores = calculate_scores(interactome, adjacency_matrices, causal_genes_new)
         
         logger.info("Saving scores to TSV")
-        scores_to_TSV(left_out, scores, out_path)
-        break
-
-def scores_to_TSV(left_out, scores, out_path):
-    '''
-    Save scoring results to a TSV file with 2 columns: gene, score.
-
-    arguments:
-    - scores: dict with key=gene, value=score
-    - out_path: path to save TSV, type=pathlib.Path
-    '''
-    out_file = out_path / f"{left_out}_scores.tsv"
-    f = open(out_file, 'w+')
-
-    # file header
-    f.write("node" + "\t" + "score" + '\n')
-
-    for node, score in scores.items():
-        f.write(str(node) + '\t' + str(score) + '\n')
-
-    f.close()
+        scores_to_TSV(scores, out_path, file_name=f"{left_out}_scores.tsv")
 
 
 def main(interactome_file, causal_genes_file, canonical_genes_file, out_path):

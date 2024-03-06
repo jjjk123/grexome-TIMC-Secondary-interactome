@@ -190,7 +190,7 @@ def get_adjacency_matrices(interactome, max_power):
     
     return adjacency_matrices
 
-def scores_to_TSV(scores, out_path):
+def scores_to_TSV(scores, out_path, file_name="scores.tsv"):
     '''
     Save scoring results to a TSV file with 2 columns: gene, score.
 
@@ -198,7 +198,7 @@ def scores_to_TSV(scores, out_path):
     - scores: dict with key=gene, value=score
     - out_path: path to save TSV, type=pathlib.Path
     '''
-    out_file = out_path / "scores.tsv"
+    out_file = out_path / file_name
     f = open(out_file, 'w+')
 
     # file header
