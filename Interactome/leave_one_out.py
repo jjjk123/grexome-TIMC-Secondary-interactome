@@ -16,15 +16,15 @@ def leave_one_out(interactome, causal_genes, out_path):
     - interactome: type=networkx.Graph
     - causal_genes: dict with key=gene, value=1 if causal, 0 otherwise
 
-    Saves new scores to TSV for each left-out gene
-    and plots scores vs. left-out scores.
+    - scores_left_out: dict with key=left-out, value=score
+
+    Note: Saves new scores to TSVs for each left-out gene.
     ''' 
     logger.info("Calculating adjacency matrices")
     adjacency_matrices = get_adjacency_matrices(interactome, max_power=5)
 
-
     # initialize dict to store left-out scores
-    dict_left_out = {}
+    scores_left_out = {}
 
     causal_genes_list = [k for k, v in causal_genes.items() if v == 1]
     for left_out in causal_genes_list:
@@ -35,8 +35,12 @@ def leave_one_out(interactome, causal_genes, out_path):
         logger.info("Calculating scores")
         scores = calculate_scores(interactome, adjacency_matrices, causal_genes_new)
         
-        logger.info("Saving scores to TSV")
+        # populate structure
+        scores_left_out[left_out] = scores.get(left_out)
+        
         scores_to_TSV(scores, out_path, file_name=f"{left_out}_scores.tsv")
+
+    scores_to_TSV(scores_left_out, out_path, file_name=f"left_out_scores.tsv")
 
 
 def main(interactome_file, causal_genes_file, canonical_genes_file, out_path):
