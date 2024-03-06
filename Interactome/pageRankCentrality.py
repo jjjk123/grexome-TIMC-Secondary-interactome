@@ -168,13 +168,13 @@ def get_adjacency_matrices(interactome, max_power):
     # @ - matrix multiplication
     res = A @ A
     res.setdiag(0)
-    res = res / res.sum(axis=0)
+    # res = res / res.sum(axis=0)
     adjacency_matrices[2] = res
 
     for power in range(2, max_power+1):
         res = res @ A
         res.setdiag(0)
-        res = res / res.sum(axis=0)
+        # res = res / res.sum(axis=0)
         adjacency_matrices[power] = res
     
     return adjacency_matrices
