@@ -119,41 +119,6 @@ def parse_causal_genes(causal_genes_file, canonical_genes_file, genes) -> dict:
     return causal_genes
 
 
-def calculate_scores(interactome, adjacency_matrices, causal_genes, alpha=0.5, max_power=5) -> dict:
-    '''
-    Calculates scores for every gene in the interactome based on the proximity to causal genes.
-
-    arguments:
-    - interactome: type=networkx.Graph
-    - causal_genes: dict with key=gene, value=1 if causal, 0 otherwise
-    NOTE: alpha hardcoded
-
-    returns:
-    - scores: dict with key=gene, value=score
-    '''
-    # 1D numpy array for genes in the interactome: 1 if causal gene, 0 otherwise, size=len(nodes in interactome)
-    causal_genes_array = numpy.array([1 if causal_genes.get(n) == 1 else 0 for n in interactome.nodes()])
-
-    scores_array = numpy.zeros((len(causal_genes_array)))
-    norm_factors_array = numpy.zeros((len(causal_genes_array)))
-
-    # calculate normalized scores
-    for d in range(1, max_power+1):
-        A = adjacency_matrices.get(d)
-
-        # numpy.dot is not aware of sparse arrays, todense() should be used
-        scores_array += alpha ** d * numpy.dot(A.todense(), causal_genes_array)
-
-        norm_factors_array += alpha ** d * A.sum(axis=0)
-
-    scores_array_normalized = numpy.squeeze(scores_array / norm_factors_array)
-
-    # map ENSGs to scores
-    scores = dict(zip(interactome.nodes(), scores_array_normalized))
-
-    return scores
-
-
 def scores_to_TSV(scores, out_path, file_name="scores.tsv"):
     '''
     Save scoring results to a TSV file with 2 columns: gene, score.
