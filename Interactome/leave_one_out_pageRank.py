@@ -7,7 +7,9 @@ import multiprocessing
 import argparse
 import pathlib
 
-from pageRankCentrality import parse_interactome, parse_causal_genes, get_adjacency_matrices, calculate_scores, scores_to_TSV
+from utils import parse_interactome, parse_causal_genes, scores_to_TSV
+
+from pageRankCentrality import get_adjacency_matrices, calculate_scores
 
 
 def leave_one_out(interactome, causal_genes, out_path):
