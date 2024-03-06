@@ -9,7 +9,7 @@ import pathlib
 
 import numpy
 
-from newCentrality_v4 import parse_interactome, parse_causal_genes, get_adjacency_matrices
+from newCentrality_v4 import parse_interactome, parse_causal_genes, get_adjacency_matrices, calculate_scores
 
 
 def leave_one_out(interactome, causal_genes, out_path):
@@ -18,14 +18,17 @@ def leave_one_out(interactome, causal_genes, out_path):
     - interactome: type=networkx.Graph
     - causal_genes: dict with key=gene, value=1 if causal, 0 otherwise
 
-    returns:
-    - scores: dict with key=gene, value=1 if causal, 0 otherwise
+    Saves new scores to TSV for each left-out gene
+    and plots scores vs. left-out scores.
     ''' 
     logger.info("Calculating adjacency matrices")
     adjacency_matrices = get_adjacency_matrices(interactome, max_power=5)
 
+
+    # initialize dict to store left-out scores
+    dict_left_out = {}
+
     causal_genes_list = [k for k, v in causal_genes.items() if v == 1]
-    
     for left_out in causal_genes_list:
         logger.info("Leaving out %s", left_out)
         causal_genes_new = causal_genes.copy()
@@ -36,43 +39,7 @@ def leave_one_out(interactome, causal_genes, out_path):
         
         logger.info("Saving scores to TSV")
         scores_to_TSV(left_out, scores, out_path)
-
-
-def calculate_scores(interactome, adjacency_matrices, causal_genes, alpha=0.5, max_power=5) -> dict:
-    '''
-    Calculates scores for every gene in the interactome based on the proximity to causal genes.
-
-    arguments:
-    - interactome: type=networkx.Graph
-    - adjacency_matrices: dict with key=power, value=adjacency_matrix**power
-    - causal_genes: dict with key=gene, value=1 if causal, 0 otherwise
-    NOTE: alpha hardcoded
-
-    returns:
-    - scores: dict with key=gene, value=score
-    '''
-    # 1D numpy array for genes in the interactome: 1 if causal gene, 0 otherwise, size=len(nodes in interactome)
-    causal_genes_array = numpy.array([1 if causal_genes.get(n) == 1 else 0 for n in interactome.nodes()])
-
-    scores_array = numpy.zeros((len(causal_genes_array)))
-    norm_factors_array = numpy.zeros((len(causal_genes_array)))
-
-    # calculate normalized scores
-    for d in range(1, max_power+1):
-        A = adjacency_matrices.get(d)
-
-        # numpy.dot is not aware of sparse arrays, todense() should be used
-        scores_array += alpha ** d * numpy.dot(A.todense(), causal_genes_array)
-
-        norm_factors_array += alpha ** d * A.sum(axis=0)
-
-    scores_array_normalized = numpy.squeeze(scores_array / norm_factors_array)
-
-    # map ENSGs to scores
-    scores = dict(zip(interactome.nodes(), scores_array_normalized))
-
-    return scores
-
+        break
 
 def scores_to_TSV(left_out, scores, out_path):
     '''
