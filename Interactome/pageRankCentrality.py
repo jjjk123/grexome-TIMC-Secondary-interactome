@@ -125,7 +125,7 @@ def parse_causal_genes(causal_genes_file, canonical_genes_file, genes) -> dict:
     return causal_genes
 
 
-def calculate_scores(interactome, causal_genes, alpha=0.5, max_power=5) -> dict:
+def calculate_scores(interactome, adjacency_matrices, causal_genes, alpha=0.5, max_power=5) -> dict:
     '''
     Calculates scores for every gene in the interactome based on the proximity to causal genes.
 
@@ -141,9 +141,6 @@ def calculate_scores(interactome, causal_genes, alpha=0.5, max_power=5) -> dict:
     causal_genes_array = numpy.array([1 if causal_genes.get(n) == 1 else 0 for n in interactome.nodes()])
 
     scores_array = numpy.zeros((len(causal_genes_array)))
-    norm_factors_array = numpy.zeros((len(causal_genes_array)))
-
-    adjacency_matrices = get_adjacency_matrices(interactome, max_power)
 
     # calculate normalized scores
     for d in range(1, max_power+1):
@@ -152,12 +149,8 @@ def calculate_scores(interactome, causal_genes, alpha=0.5, max_power=5) -> dict:
         # numpy.dot is not aware of sparse arrays, todense() should be used
         scores_array += alpha ** d * numpy.dot(A.todense(), causal_genes_array)
 
-        norm_factors_array += alpha ** d * A.sum(axis=0)
-
-    scores_array_normalized = numpy.squeeze(scores_array / norm_factors_array)
-
     # map ENSGs to scores
-    scores = dict(zip(interactome.nodes(), scores_array_normalized))
+    scores = dict(zip(interactome.nodes(), scores_array))
 
     return scores
 
@@ -186,7 +179,7 @@ def get_adjacency_matrices(interactome, max_power):
     
     return adjacency_matrices
 
-def scores_to_TSV(scores, out_path):
+def scores_to_TSV(scores, out_path, file_name="scores_pageRank.tsv"):
     '''
     Save scoring results to a TSV file with 2 columns: gene, score.
 
@@ -194,7 +187,7 @@ def scores_to_TSV(scores, out_path):
     - scores: dict with key=gene, value=score
     - out_path: path to save TSV, type=pathlib.Path
     '''
-    out_file = out_path / "scores_pageRank.tsv"
+    out_file = out_path / file_name
     f = open(out_file, 'w+')
 
     # file header
@@ -212,9 +205,12 @@ def main(interactome_file, causal_genes_file, canonical_genes_file, out_path):
 
     logger.info("Parsing causal genes")
     causal_genes = parse_causal_genes(causal_genes_file, canonical_genes_file, genes)
+    
+    logger.info("Calculating adjacency matrices")
+    adjacency_matrices = get_adjacency_matrices(interactome, max_power=5)
 
     logger.info("Calculating scores")
-    scores = calculate_scores(interactome, causal_genes)
+    scores = calculate_scores(interactome, adjacency_matrices, causal_genes)
 
     logger.info("Done!")
     scores_to_TSV(scores, out_path)
