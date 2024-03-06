@@ -125,7 +125,7 @@ def parse_causal_genes(causal_genes_file, canonical_genes_file, genes) -> dict:
     return causal_genes
 
 
-def calculate_scores(interactome, causal_genes, alpha=0.5, max_power=5) -> dict:
+def calculate_scores(interactome, adjacency_matrices, causal_genes, alpha=0.5, max_power=5) -> dict:
     '''
     Calculates scores for every gene in the interactome based on the proximity to causal genes.
 
@@ -143,23 +143,6 @@ def calculate_scores(interactome, causal_genes, alpha=0.5, max_power=5) -> dict:
     scores_array = numpy.zeros((len(causal_genes_array)))
     norm_factors_array = numpy.zeros((len(causal_genes_array)))
 
-    # initiate dict key=power, value=adjacency_matrix**power
-    adjacency_matrices = {}
-
-    A = networkx.to_scipy_sparse_array(interactome) # returns scipy.sparse._csr.csr_array
-    A.setdiag(0)
-    adjacency_matrices[1] = A
-
-    # @ - matrix multiplication
-    res = A @ A
-    res.setdiag(0)
-    adjacency_matrices[2] = res
-
-    for power in range(2, max_power+1):
-        res = res @ A
-        res.setdiag(0)
-        adjacency_matrices[power] = res
-
     # calculate normalized scores
     for d in range(1, max_power+1):
         A = adjacency_matrices.get(d)
@@ -176,6 +159,36 @@ def calculate_scores(interactome, causal_genes, alpha=0.5, max_power=5) -> dict:
 
     return scores
 
+
+def get_adjacency_matrices(interactome, max_power):
+    '''
+    Calculates powers of adjacency matrix.
+
+    arguments:
+    - interactome: type=networkx.Graphs
+    - max_power: int
+
+    returns:
+    - adjacency_matrices: dict with key=power, value=adjacency_matrix**power
+    '''
+    # initiate dict key=power, value=adjacency_matrix**power
+    adjacency_matrices = {}
+
+    A = networkx.to_scipy_sparse_array(interactome) # returns scipy.sparse._csr.csr_array
+    A.setdiag(0)
+    adjacency_matrices[1] = A
+
+    # @ - matrix multiplication
+    res = A @ A
+    res.setdiag(0)
+    adjacency_matrices[2] = res
+
+    for power in range(2, max_power+1):
+        res = res @ A
+        res.setdiag(0)
+        adjacency_matrices[power] = res
+    
+    return adjacency_matrices
 
 def scores_to_TSV(scores, out_path):
     '''
@@ -203,9 +216,12 @@ def main(interactome_file, causal_genes_file, canonical_genes_file, out_path):
 
     logger.info("Parsing causal genes")
     causal_genes = parse_causal_genes(causal_genes_file, canonical_genes_file, genes)
+    
+    logger.info("Calculating adjacency matrices")
+    adjacency_matrices = get_adjacency_matrices(interactome, max_power=5)
 
     logger.info("Calculating scores")
-    scores = calculate_scores(interactome, causal_genes)
+    scores = calculate_scores(interactome, adjacency_matrices, causal_genes)
 
     logger.info("Done!")
     scores_to_TSV(scores, out_path)
