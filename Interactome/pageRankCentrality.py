@@ -50,6 +50,7 @@ def get_adjacency_matrices(interactome, max_power):
     adjacency_matrices = {}
 
     A = networkx.to_scipy_sparse_array(interactome) # returns scipy.sparse._csr.csr_array
+    # exclude self-interactions
     A.setdiag(0)
     # normalize A column-wise
     A = A / A.sum(axis=0)
@@ -57,13 +58,13 @@ def get_adjacency_matrices(interactome, max_power):
 
     # @ - matrix multiplication
     res = A @ A
-    res.setdiag(0)
+    # res.setdiag(0)
     # res = res / res.sum(axis=0)
     adjacency_matrices[2] = res
 
     for power in range(2, max_power+1):
         res = res @ A
-        res.setdiag(0)
+        # res.setdiag(0)
         # res = res / res.sum(axis=0)
         adjacency_matrices[power] = res
     
