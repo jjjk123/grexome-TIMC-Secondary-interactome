@@ -88,13 +88,13 @@ def main(interactome_file, causal_genes_file, canonical_genes_file, out_path):
     causal_genes = parse_causal_genes(causal_genes_file, canonical_genes_file, genes)
     
     logger.info("Calculating adjacency matrices")
-    adjacency_matrices = get_adjacency_matrices(interactome, max_power=10)
+    adjacency_matrices = get_adjacency_matrices(interactome, max_power=5)
 
     logger.info("Calculating scores")
-    scores = calculate_scores(interactome, adjacency_matrices, causal_genes, max_power=10)
+    scores = calculate_scores(interactome, adjacency_matrices, causal_genes, max_power=5)
 
     logger.info("Done!")
-    scores_to_TSV(scores, out_path, file_name="scores_d10.tsv")
+    scores_to_TSV(scores, out_path, file_name="scores.tsv")
 
 
 if __name__ == "__main__":
