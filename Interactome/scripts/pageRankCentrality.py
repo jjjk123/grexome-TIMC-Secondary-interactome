@@ -58,13 +58,13 @@ def get_adjacency_matrices(interactome, max_power):
 
     # @ - matrix multiplication
     res = A @ A
-    # res.setdiag(0)
+    res.setdiag(0)
     # res = res / res.sum(axis=0)
     adjacency_matrices[2] = res
 
     for power in range(2, max_power+1):
         res = res @ A
-        # res.setdiag(0)
+        res.setdiag(0)
         # res = res / res.sum(axis=0)
         adjacency_matrices[power] = res
     
@@ -98,13 +98,13 @@ def main(interactome_file, causal_genes_file, canonical_genes_file, out_path):
     causal_genes = parse_causal_genes(causal_genes_file, canonical_genes_file, genes)
     
     logger.info("Calculating adjacency matrices")
-    adjacency_matrices = get_adjacency_matrices(interactome, max_power=5)
+    adjacency_matrices = get_adjacency_matrices(interactome, max_power=10)
 
     logger.info("Calculating scores")
-    scores = calculate_scores(interactome, adjacency_matrices, causal_genes)
+    scores = calculate_scores(interactome, adjacency_matrices, causal_genes, max_power=10)
 
     logger.info("Done!")
-    scores_to_TSV(scores, out_path, file_name="scores_pageRank.tsv")
+    scores_to_TSV(scores, out_path, file_name="scores_pageRank_d10.tsv")
 
 
 if __name__ == "__main__":

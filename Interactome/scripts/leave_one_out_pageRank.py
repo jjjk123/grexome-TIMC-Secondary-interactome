@@ -21,7 +21,7 @@ def leave_one_out(interactome, causal_genes, out_path):
     Note: Saves new scores to TSVs for each left-out gene.
     ''' 
     logger.info("Calculating adjacency matrices")
-    adjacency_matrices = get_adjacency_matrices(interactome, max_power=5)
+    adjacency_matrices = get_adjacency_matrices(interactome, max_power=10)
 
     # initialize dict to store left-out scores
     scores_left_out = {}
@@ -33,7 +33,7 @@ def leave_one_out(interactome, causal_genes, out_path):
         causal_genes_new[left_out] = 0
 
         logger.info("Calculating scores")
-        scores = calculate_scores(interactome, adjacency_matrices, causal_genes_new)
+        scores = calculate_scores(interactome, adjacency_matrices, causal_genes_new, max_power=10)
         
         # populate structure
         scores_left_out[left_out] = scores.get(left_out)
