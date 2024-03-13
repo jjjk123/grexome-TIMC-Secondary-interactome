@@ -10,7 +10,7 @@ from utils import parse_interactome, parse_causal_genes, scores_to_TSV
 from newCentrality_v4 import get_adjacency_matrices, calculate_scores
 
 
-def leave_one_out(interactome, causal_genes, out_path):
+def leave_one_out(interactome, causal_genes, out_path, alpha=0.5, max_power=0.5):
     '''
     arguments:
     - interactome: type=networkx.Graph
@@ -21,7 +21,7 @@ def leave_one_out(interactome, causal_genes, out_path):
     Note: Saves new scores to TSVs for each left-out gene.
     ''' 
     logger.info("Calculating adjacency matrices")
-    adjacency_matrices = get_adjacency_matrices(interactome, max_power=10)
+    adjacency_matrices = get_adjacency_matrices(interactome, max_power=max_power)
 
     # initialize dict to store left-out scores
     scores_left_out = {}
@@ -33,7 +33,7 @@ def leave_one_out(interactome, causal_genes, out_path):
         causal_genes_new[left_out] = 0
 
         logger.info("Calculating scores")
-        scores = calculate_scores(interactome, adjacency_matrices, causal_genes_new, max_power=10)
+        scores = calculate_scores(interactome, adjacency_matrices, causal_genes_new, alpha=alpha, max_power=max_power)
         
         # populate structure
         scores_left_out[left_out] = scores.get(left_out)
@@ -43,7 +43,7 @@ def leave_one_out(interactome, causal_genes, out_path):
     scores_to_TSV(scores_left_out, out_path, file_name=f"left_out_scores.tsv")
 
 
-def main(interactome_file, causal_genes_file, canonical_genes_file, out_path):
+def main(interactome_file, causal_genes_file, canonical_genes_file, out_path, alpha, max_power):
 
     logger.info("Parsing interactome")
     interactome, genes = parse_interactome(interactome_file)
@@ -51,7 +51,7 @@ def main(interactome_file, causal_genes_file, canonical_genes_file, out_path):
     logger.info("Parsing causal genes")
     causal_genes = parse_causal_genes(causal_genes_file, canonical_genes_file, genes)
 
-    leave_one_out(interactome, causal_genes, out_path)
+    leave_one_out(interactome, causal_genes, out_path, alpha, max_power)
 
 
 if __name__ == "__main__":
@@ -72,6 +72,8 @@ if __name__ == "__main__":
     parser.add_argument('--causal_genes_file', type=pathlib.Path)
     parser.add_argument('--canonical_genes_file', type=pathlib.Path)
     parser.add_argument('-o', '--out_path', type=pathlib.Path)
+    parser.add_argument('--alpha', type=float)
+    parser.add_argument('--max_power', type=int) 
 
     args = parser.parse_args()
 
@@ -79,7 +81,9 @@ if __name__ == "__main__":
         main(interactome_file=args.interactome_file,
              causal_genes_file=args.causal_genes_file,
              canonical_genes_file=args.canonical_genes_file,
-             out_path=args.out_path)
+             out_path=args.out_path,
+             alpha=args.alpha,
+             max_power=args.max_power)
     except Exception as e:
         # details on the issue should be in the exception name, print it to stderr and die
         sys.stderr.write("ERROR in " + script_name + " : " + repr(e) + "\n")
