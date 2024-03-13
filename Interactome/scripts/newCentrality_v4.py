@@ -49,7 +49,7 @@ def calculate_scores(interactome, adjacency_matrices, causal_genes, alpha=0.5, m
 
     return scores
 
-def get_adjacency_matrices(interactome, max_power):
+def get_adjacency_matrices(interactome, max_power=5):
     '''
     Calculates powers of adjacency matrix.
 
@@ -79,7 +79,8 @@ def get_adjacency_matrices(interactome, max_power):
     
     return adjacency_matrices
 
-def main(interactome_file, causal_genes_file, canonical_genes_file, out_path):
+
+def main(interactome_file, causal_genes_file, canonical_genes_file, out_path, alpha=0.5, max_power=0.5, out_file="scores.tsv"):
 
     logger.info("Parsing interactome")
     interactome, genes = parse_interactome(interactome_file)
@@ -88,13 +89,13 @@ def main(interactome_file, causal_genes_file, canonical_genes_file, out_path):
     causal_genes = parse_causal_genes(causal_genes_file, canonical_genes_file, genes)
     
     logger.info("Calculating adjacency matrices")
-    adjacency_matrices = get_adjacency_matrices(interactome, max_power=5)
+    adjacency_matrices = get_adjacency_matrices(interactome, max_power=max_power)
 
     logger.info("Calculating scores")
-    scores = calculate_scores(interactome, adjacency_matrices, causal_genes, max_power=5)
+    scores = calculate_scores(interactome, adjacency_matrices, causal_genes, alpha=alpha, max_power=max_power)
 
     logger.info("Done!")
-    scores_to_TSV(scores, out_path, file_name="scores.tsv")
+    scores_to_TSV(scores, out_path, file_name=out_file)
 
 
 if __name__ == "__main__":
@@ -114,9 +115,10 @@ if __name__ == "__main__":
     parser.add_argument('-i', '--interactome_file', type=pathlib.Path)
     parser.add_argument('--causal_genes_file', type=pathlib.Path)
     parser.add_argument('--canonical_genes_file', type=pathlib.Path)
-    # parser.add_argument('--new_candidates', type=str, nargs='+')
-    # parser.add_argument('--phenotype', type=str)
     parser.add_argument('-o', '--out_path', type=pathlib.Path)
+    parser.add_argument('--alpha', type=float)
+    parser.add_argument('--max_power', type=int)    
+    parser.add_argument('--out_file', type=str)
 
     args = parser.parse_args()
 
@@ -124,7 +126,11 @@ if __name__ == "__main__":
         main(interactome_file=args.interactome_file,
              causal_genes_file=args.causal_genes_file,
              canonical_genes_file=args.canonical_genes_file,
-             out_path=args.out_path)
+             out_path=args.out_path,
+             alpha=args.alpha,
+             max_power=args.max_power,
+             out_file=args.out_file)
+        
     except Exception as e:
         # details on the issue should be in the exception name, print it to stderr and die
         sys.stderr.write("ERROR in " + script_name + " : " + repr(e) + "\n")
