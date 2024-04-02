@@ -11,7 +11,7 @@ def parse_interactome(interactome_file) -> tuple[networkx.Graph, dict]:
     Creates a networkx.Graph interactome.
 
     arguments:
-    - interactome_file: path to interactome SIF file, type=pathlib.Path
+    - interactome_file: path to interactome SIF file, type=str
       with 3 columns: gene1 pp gene2
 
     returns:
@@ -51,13 +51,12 @@ def parse_causal_genes(causal_genes_file, canonical_genes_file, genes) -> dict:
     Creates a dictionary of all genes in the interactome, key=gene, value=1 if causal, 0 otherwise.
 
     arguments:
-    - causal_genes_file: path to known causal genes CSV file, type=pathlib.Path
+    - causal_genes_file: path to known causal genes CSV file, type=str
       with 2 columns: gene, pathology
-    - canonical_genes_file: path to canonical genes, type=pathlib.Path
-      with 2 columns: gene_name, ENSG
-    - pathology: phenotype for which to get the causal genes, type=str
+    - canonical_genes_file: path to canonical genes, type=str with 2
+      columns: gene_name, ENSG
     - genes: dict with key=gene, value=0
-    NOTE: pathology hardcoded
+    NOTE: pathology of interest is hardcoded
 
     returns:
     - causal_genes: dict with key=gene, value=1 if causal, 0 otherwise
