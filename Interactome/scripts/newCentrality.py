@@ -15,7 +15,7 @@ import utils
 logger = logging.getLogger(__name__)
 
 
-def calculate_scores(interactome, adjacency_matrices, causal_genes, alpha=0.5, max_power=5) -> dict:
+def calculate_scores(interactome, adjacency_matrices, causal_genes, alpha=0.5, norm_alpha_div=1, max_power=5) -> dict:
     '''
     Calculates scores for every gene in the interactome based on the proximity to causal genes.
 
@@ -34,13 +34,14 @@ def calculate_scores(interactome, adjacency_matrices, causal_genes, alpha=0.5, m
     norm_factors_array = numpy.zeros((len(causal_genes_array)))
 
     # calculate normalized scores
-    for d in range(1, max_power+1):
+    for d in range(max_power):
+        A = adjacency_matrices[d]
         A = adjacency_matrices.get(d)
 
         # numpy.dot is not aware of sparse arrays, todense() should be used
         scores_array += alpha ** d * numpy.dot(A.todense(), causal_genes_array)
 
-        norm_factors_array += (alpha/10) ** d * A.sum(axis=0)
+        norm_factors_array += (alpha/norm_alpha_div) ** d * A.sum(axis=0)
 
     scores_array_normalized = numpy.squeeze(scores_array / norm_factors_array)
 
@@ -61,18 +62,18 @@ def get_adjacency_matrices(interactome, max_power=5):
     - adjacency_matrices: dict with key=power, value=adjacency_matrix**power
     '''
     # initiate dict key=power, value=adjacency_matrix**power
-    adjacency_matrices = {}
+    adjacency_matrices = []
 
     A = networkx.to_scipy_sparse_array(interactome) # returns scipy.sparse._csr.csr_array
     res = A
     res.setdiag(0)
-    adjacency_matrices[1] = A
+    adjacency_matrices.append(A)
 
     # @ - matrix multiplication
-    for power in range(2, max_power+1):
+    for power in range(max_power):
         res = res @ A
         res.setdiag(0)
-        adjacency_matrices[power] = res
+        adjacency_matrices.append(res)
     
     return adjacency_matrices
 
