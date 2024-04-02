@@ -5,10 +5,8 @@ import os
 import argparse
 import pathlib
 
-from utils import parse_interactome, parse_causal_genes, scores_to_TSV
-
-# from newCentrality_v4 import get_adjacency_matrices, calculate_scores
-from newCentrality_v5 import get_adjacency_matrices, calculate_scores
+import newCentrality
+import utils
 
 
 def leave_one_out(interactome, causal_genes, out_path, alpha=0.5, max_power=0.5):
@@ -22,7 +20,7 @@ def leave_one_out(interactome, causal_genes, out_path, alpha=0.5, max_power=0.5)
     Note: Saves new scores to TSVs for each left-out gene.
     ''' 
     logger.info("Calculating adjacency matrices")
-    adjacency_matrices = get_adjacency_matrices(interactome, max_power=max_power)
+    adjacency_matrices = newCentrality.get_adjacency_matrices(interactome, max_power=max_power)
 
     # initialize dict to store left-out scores
     scores_left_out = {}
@@ -34,23 +32,23 @@ def leave_one_out(interactome, causal_genes, out_path, alpha=0.5, max_power=0.5)
         causal_genes_new[left_out] = 0
 
         logger.info("Calculating scores")
-        scores = calculate_scores(interactome, adjacency_matrices, causal_genes_new, alpha=alpha, max_power=max_power)
+        scores = newCentrality.calculate_scores(interactome, adjacency_matrices, causal_genes_new, alpha=alpha, max_power=max_power)
         
         # populate structure
         scores_left_out[left_out] = scores.get(left_out)
         
-        scores_to_TSV(scores, out_path, file_name=f"{left_out}_scores.tsv")
+        utils.scores_to_TSV(scores, out_path, file_name=f"{left_out}_scores.tsv")
 
-    scores_to_TSV(scores_left_out, out_path, file_name=f"left_out_scores.tsv")
+    utils.scores_to_TSV(scores_left_out, out_path, file_name=f"left_out_scores.tsv")
 
 
 def main(interactome_file, causal_genes_file, canonical_genes_file, out_path, alpha, max_power):
 
     logger.info("Parsing interactome")
-    interactome, genes = parse_interactome(interactome_file)
+    interactome, genes = utils.parse_interactome(interactome_file)
 
     logger.info("Parsing causal genes")
-    causal_genes = parse_causal_genes(causal_genes_file, canonical_genes_file, genes)
+    causal_genes = utils.parse_causal_genes(causal_genes_file, canonical_genes_file, genes)
 
     leave_one_out(interactome, causal_genes, out_path, alpha, max_power)
 
