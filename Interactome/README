@@ -119,3 +119,12 @@ python leave_one_out_Leontief.py -i /home/kubicaj/calc/input/Interactome_human.s
 
 # newCentrality_v5.py uses alpha to calculate scores and alpha/[2,10] to calculate normalization factors
 # usage the same as newCentrality_v4.py
+
+# BUG IN CALCULATING MATRICES^d
+# FIXED IN New_centrality_v6 (git branch)
+
+# Start to work on branches, instead of New_cetrality_vX (where X-version)
+
+# New centrality v6
+# example usage:
+python scripts/newCentrality.py -i ~/calc/input/Interactome_human.sif --causal_genes_file ~/calc/input/causalGenes_allPhenotypes.csv --canonical_genes_file ~/calc/input/canonicalGenes.tsv -o ~/calc/output/New_centrality_v6/norm_alpha_div_1/ --alpha 0.1 --norm_alpha_div 1 --max_power 1 --out_file scores_d1_alpha01.tsv
