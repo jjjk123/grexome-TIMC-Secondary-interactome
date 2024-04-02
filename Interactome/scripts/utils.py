@@ -130,7 +130,7 @@ def scores_to_TSV(scores, out_path, file_name="scores.tsv"):
     # file header
     f.write("node" + "\t" + "score" + '\n')
 
-    for node, score in scores.items():
+    for (node, score) in sorted(scores.items()):
         f.write(str(node) + '\t' + str(score) + '\n')
 
     f.close()
