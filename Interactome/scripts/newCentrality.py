@@ -40,7 +40,7 @@ def calculate_scores(interactome, adjacency_matrices, causal_genes, alpha=0.5, n
         # numpy.dot is not aware of sparse arrays, todense() should be used
         scores_array += alpha ** d * numpy.dot(A.todense(), causal_genes_array)
 
-        norm_factors_array += (alpha/norm_alpha_div) ** d * A.sum(axis=0)
+        norm_factors_array += (alpha / norm_alpha_div) ** d * A.sum(axis=0)
 
     scores_array_normalized = numpy.squeeze(scores_array / norm_factors_array)
 
@@ -48,6 +48,7 @@ def calculate_scores(interactome, adjacency_matrices, causal_genes, alpha=0.5, n
     scores = dict(zip(interactome.nodes(), scores_array_normalized))
 
     return scores
+
 
 def get_adjacency_matrices(interactome, max_power=5):
     '''
@@ -63,7 +64,7 @@ def get_adjacency_matrices(interactome, max_power=5):
     # initiate dict key=power, value=adjacency_matrix**power
     adjacency_matrices = []
 
-    A = networkx.to_scipy_sparse_array(interactome) # returns scipy.sparse._csr.csr_array
+    A = networkx.to_scipy_sparse_array(interactome)  # returns scipy.sparse._csr.csr_array
     res = A
     res.setdiag(0)
     adjacency_matrices.append(A)
@@ -73,7 +74,7 @@ def get_adjacency_matrices(interactome, max_power=5):
         res = res @ A
         res.setdiag(0)
         adjacency_matrices.append(res)
-    
+
     return adjacency_matrices
 
 
@@ -86,7 +87,7 @@ def main(interactome_file, causal_genes_file, canonical_genes_file, out_path, al
 
     logger.info("Parsing causal genes")
     causal_genes = utils.parse_causal_genes(causal_genes_file, canonical_genes_file, genes)
-    
+
     logger.info("Calculating adjacency matrices")
     adjacency_matrices = get_adjacency_matrices(interactome, max_power=max_power)
 
@@ -117,7 +118,7 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--out_path', type=pathlib.Path)
     parser.add_argument('--alpha', type=float)
     parser.add_argument('--norm_alpha_div', type=float)
-    parser.add_argument('--max_power', type=int)    
+    parser.add_argument('--max_power', type=int)
     parser.add_argument('--out_file', type=str)
 
     args = parser.parse_args()
@@ -131,7 +132,7 @@ if __name__ == "__main__":
              norm_alpha_div=args.norm_alpha_div,
              max_power=args.max_power,
              out_file=args.out_file)
-        
+
     except Exception as e:
         # details on the issue should be in the exception name, print it to stderr and die
         sys.stderr.write("ERROR in " + script_name + " : " + repr(e) + "\n")
