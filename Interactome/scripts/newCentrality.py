@@ -64,15 +64,12 @@ def get_adjacency_matrices(interactome, max_power=5):
     adjacency_matrices = {}
 
     A = networkx.to_scipy_sparse_array(interactome) # returns scipy.sparse._csr.csr_array
-    A.setdiag(0)
+    res = A
+    res.setdiag(0)
     adjacency_matrices[1] = A
 
     # @ - matrix multiplication
-    res = A @ A
-    res.setdiag(0)
-    adjacency_matrices[2] = res
-
-    for power in range(3, max_power+1):
+    for power in range(2, max_power+1):
         res = res @ A
         res.setdiag(0)
         adjacency_matrices[power] = res

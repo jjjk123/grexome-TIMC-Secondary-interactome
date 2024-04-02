@@ -116,3 +116,6 @@ python scripts/leave_one_out.py -i ~/calc/input/Interactome_human.sif --causal_g
 # implemented Leontief
 # leave-one-out:
 python leave_one_out_Leontief.py -i /home/kubicaj/calc/input/Interactome_human.sif --causal_genes_file /home/kubicaj/calc/input/causalGenes_allPhenotypes.csv --canonical_genes_file /home/kubicaj/calc/input/canonicalGenes.tsv -o /home/kubicaj/calc/output/leave_one_out_Leontief
+
+# newCentrality_v5.py uses alpha to calculate scores and alpha/[2,10] to calculate normalization factors
+# usage the same as newCentrality_v4.py
