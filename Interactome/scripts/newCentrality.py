@@ -9,7 +9,7 @@ import numpy
 
 import networkx
 
-from utils import parse_interactome, parse_causal_genes, scores_to_TSV
+import utils
 
 # set up logger, using inherited config, in case we get called as a module
 logger = logging.getLogger(__name__)
@@ -80,10 +80,10 @@ def get_adjacency_matrices(interactome, max_power=5):
 def main(interactome_file, causal_genes_file, canonical_genes_file, out_path, alpha=0.5, max_power=5, out_file="scores.tsv"):
 
     logger.info("Parsing interactome")
-    interactome, genes = parse_interactome(interactome_file)
+    interactome, genes = utils.parse_interactome(interactome_file)
 
     logger.info("Parsing causal genes")
-    causal_genes = parse_causal_genes(causal_genes_file, canonical_genes_file, genes)
+    causal_genes = utils.parse_causal_genes(causal_genes_file, canonical_genes_file, genes)
     
     logger.info("Calculating adjacency matrices")
     adjacency_matrices = get_adjacency_matrices(interactome, max_power=max_power)
@@ -92,7 +92,7 @@ def main(interactome_file, causal_genes_file, canonical_genes_file, out_path, al
     scores = calculate_scores(interactome, adjacency_matrices, causal_genes, alpha=alpha, max_power=max_power)
 
     logger.info("Done!")
-    scores_to_TSV(scores, out_path, file_name=out_file)
+    utils.scores_to_TSV(scores, out_path, file_name=out_file)
 
 
 if __name__ == "__main__":
