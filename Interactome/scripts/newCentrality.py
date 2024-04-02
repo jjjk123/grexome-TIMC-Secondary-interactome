@@ -15,7 +15,7 @@ import utils
 logger = logging.getLogger(__name__)
 
 
-def calculate_scores(interactome, adjacency_matrices, causal_genes, alpha=0.5, norm_alpha_div=1, max_power=5) -> dict:
+def calculate_scores(interactome, adjacency_matrices, causal_genes, alpha=0.5, norm_alpha_div=1.0, max_power=5) -> dict:
     '''
     Calculates scores for every gene in the interactome based on the proximity to causal genes.
 
@@ -36,7 +36,6 @@ def calculate_scores(interactome, adjacency_matrices, causal_genes, alpha=0.5, n
     # calculate normalized scores
     for d in range(max_power):
         A = adjacency_matrices[d]
-        A = adjacency_matrices.get(d)
 
         # numpy.dot is not aware of sparse arrays, todense() should be used
         scores_array += alpha ** d * numpy.dot(A.todense(), causal_genes_array)
@@ -78,7 +77,9 @@ def get_adjacency_matrices(interactome, max_power=5):
     return adjacency_matrices
 
 
-def main(interactome_file, causal_genes_file, canonical_genes_file, out_path, alpha=0.5, max_power=5, out_file="scores.tsv"):
+def main(interactome_file, causal_genes_file, canonical_genes_file, out_path, alpha=0.5, norm_alpha_div=1.0, max_power=5, out_file="scores.tsv"):
+
+    logger.info
 
     logger.info("Parsing interactome")
     interactome, genes = utils.parse_interactome(interactome_file)
@@ -90,7 +91,7 @@ def main(interactome_file, causal_genes_file, canonical_genes_file, out_path, al
     adjacency_matrices = get_adjacency_matrices(interactome, max_power=max_power)
 
     logger.info("Calculating scores")
-    scores = calculate_scores(interactome, adjacency_matrices, causal_genes, alpha=alpha, max_power=max_power)
+    scores = calculate_scores(interactome, adjacency_matrices, causal_genes, alpha=alpha, norm_alpha_div=norm_alpha_div, max_power=max_power)
 
     logger.info("Done!")
     utils.scores_to_TSV(scores, out_path, file_name=out_file)
@@ -115,6 +116,7 @@ if __name__ == "__main__":
     parser.add_argument('--canonical_genes_file', type=pathlib.Path)
     parser.add_argument('-o', '--out_path', type=pathlib.Path)
     parser.add_argument('--alpha', type=float)
+    parser.add_argument('--norm_alpha_div', type=float)
     parser.add_argument('--max_power', type=int)    
     parser.add_argument('--out_file', type=str)
 
@@ -126,6 +128,7 @@ if __name__ == "__main__":
              canonical_genes_file=args.canonical_genes_file,
              out_path=args.out_path,
              alpha=args.alpha,
+             norm_alpha_div=args.norm_alpha_div,
              max_power=args.max_power,
              out_file=args.out_file)
         
