@@ -91,14 +91,15 @@ def parse_causal_genes(causal_genes_file, canonical_genes_file, genes) -> dict:
         logger.error("Opening provided causal genes file %s: %s", causal_genes_file, e)
         raise Exception("cannot open provided causal genes file")
 
+    # doesn't this file have a header? (should be documented in top-of-function comments)
     for line in f_causal:
         line_splitted = line.rstrip().split('\t')
 
         gene_name, pathology = line_splitted
 
         # map gene names to ENSGs
-        if gene_name in canonical_genes.keys():
-            ENSG = canonical_genes.get(gene_name)
+        if gene_name in canonical_genes:
+            ENSG = canonical_genes[gene_name]
         else:
             continue
 
