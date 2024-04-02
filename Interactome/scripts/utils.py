@@ -1,7 +1,4 @@
 import logging
-
-import numpy
-
 import networkx
 
 
@@ -16,7 +13,7 @@ def parse_interactome(interactome_file) -> tuple[networkx.Graph, dict]:
     arguments:
     - interactome_file: path to interactome SIF file, type=pathlib.Path
       with 3 columns: gene1 pp gene2
-    
+
     returns:
     - interactome: type=networkx.Graph
     - genes: dict with key=gene value=0
@@ -61,7 +58,7 @@ def parse_causal_genes(causal_genes_file, canonical_genes_file, genes) -> dict:
     - pathology: phenotype for which to get the causal genes, type=str
     - genes: dict with key=gene, value=0
     NOTE: pathology hardcoded
-    
+
     returns:
     - causal_genes: dict with key=gene, value=1 if causal, 0 otherwise
     '''
@@ -82,7 +79,7 @@ def parse_causal_genes(causal_genes_file, canonical_genes_file, genes) -> dict:
         line_splitted = line.rstrip().split('\t')
 
         gene_name, ENSG = line_splitted
-        
+
         # populate canonical genes dictionary
         canonical_genes[gene_name] = ENSG
 
@@ -105,11 +102,11 @@ def parse_causal_genes(causal_genes_file, canonical_genes_file, genes) -> dict:
             ENSG = canonical_genes.get(gene_name)
         else:
             continue
-        
+
         # skip genes not present in the interactome
         if ENSG not in genes:
             continue
-        
+
         # populate structures
         if pathology == "MMAF":
             causal_genes[ENSG] = 1
