@@ -55,22 +55,23 @@ def get_adjacency_matrices(interactome, max_power=5):
     Calculates powers of adjacency matrix.
 
     arguments:
-    - interactome: type=networkx.Graphs
+    - interactome: type=networkx.Graph
     - max_power: int
 
     returns:
-    - adjacency_matrices: dict with key=power, value=adjacency_matrix**power
+    - adjacency_matrices: list of scipy sparse arrays, array at index i (starting at i==1) is A**i
+      where A is the adjacency matrix of interactome
     '''
-    # initiate dict key=power, value=adjacency_matrix**power
-    adjacency_matrices = []
+    # initialize, element at index 0 is never used
+    adjacency_matrices = [0]
 
     A = networkx.to_scipy_sparse_array(interactome)  # returns scipy.sparse._csr.csr_array
     res = A
     res.setdiag(0)
-    adjacency_matrices.append(A)
+    adjacency_matrices.append(res)
 
     # @ - matrix multiplication
-    for power in range(max_power):
+    for power in range(max_power - 1):
         res = res @ A
         res.setdiag(0)
         adjacency_matrices.append(res)
@@ -108,7 +109,7 @@ if __name__ == "__main__":
     logger = logging.getLogger(script_name)
 
     parser = argparse.ArgumentParser(
-        prog="newCentrality.py",
+        prog=script_name,
         description="Calculate new centrality for new candidates of infertility based on the guilt-by-association approach."
     )
 
