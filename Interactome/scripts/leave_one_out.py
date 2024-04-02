@@ -7,7 +7,8 @@ import pathlib
 
 from utils import parse_interactome, parse_causal_genes, scores_to_TSV
 
-from newCentrality_v4 import get_adjacency_matrices, calculate_scores
+# from newCentrality_v4 import get_adjacency_matrices, calculate_scores
+from newCentrality_v5 import get_adjacency_matrices, calculate_scores
 
 
 def leave_one_out(interactome, causal_genes, out_path, alpha=0.5, max_power=0.5):
