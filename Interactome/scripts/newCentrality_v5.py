@@ -40,7 +40,7 @@ def calculate_scores(interactome, adjacency_matrices, causal_genes, alpha=0.5, m
         # numpy.dot is not aware of sparse arrays, todense() should be used
         scores_array += alpha ** d * numpy.dot(A.todense(), causal_genes_array)
 
-        norm_factors_array += alpha ** d * A.sum(axis=0)
+        norm_factors_array += (alpha/10) ** d * A.sum(axis=0)
 
     scores_array_normalized = numpy.squeeze(scores_array / norm_factors_array)
 
