@@ -1,56 +1,62 @@
 import logging
-import sys
 import os
+import sys
 
 import argparse
-import pathlib
 
 import newCentrality
 import utils
 
 
-def leave_one_out(interactome, causal_genes, out_path, alpha=0.5, max_power=0.5):
+def leave_one_out(interactome, adjacency_matrices, causal_genes, alpha, norm_alpha_div):
     '''
     arguments:
     - interactome: type=networkx.Graph
-    - causal_genes: dict with key=gene, value=1 if causal, 0 otherwise
+    - adjacency_matrices: list of scipy sparse arrays as returned by newCentrality.get_adjacency_matrices()
+    - causal_genes: dict of causal genes with key=ENSG, value=1
 
-    - scores_left_out: dict with key=left-out, value=score
-
-    Note: Saves new scores to TSVs for each left-out gene.
+    returns:
+    - scores_left_out: dict with key=causal gene (ENSG), value=score of this gene 
+      when it is left out
     ''' 
-    logger.info("Calculating adjacency matrices")
-    adjacency_matrices = newCentrality.get_adjacency_matrices(interactome, max_power=max_power)
-
     # initialize dict to store left-out scores
     scores_left_out = {}
 
-    causal_genes_list = [k for k, v in causal_genes.items() if v == 1]
-    for left_out in causal_genes_list:
+    for left_out in list(causal_genes.keys()):
         logger.info("Leaving out %s", left_out)
-        causal_genes_new = causal_genes.copy()
-        causal_genes_new[left_out] = 0
-
-        logger.info("Calculating scores")
-        scores = newCentrality.calculate_scores(interactome, adjacency_matrices, causal_genes_new, alpha=alpha, max_power=max_power)
+        del causal_genes[left_out]
+        scores = newCentrality.calculate_scores(interactome, adjacency_matrices, causal_genes, alpha, norm_alpha_div)
+        scores_left_out[left_out] = scores[left_out]
+        causal_genes[left_out] = 1
         
-        # populate structure
-        scores_left_out[left_out] = scores.get(left_out)
-        
-        utils.scores_to_TSV(scores, out_path, file_name=f"{left_out}_scores.tsv")
+        # do we really want these per-left-out scores? if yes scores_to_TSV needs an
+        # outfile arg (which I removed, would need to be added back)
+        # utils.scores_to_TSV(scores, out_path, file_name=f"{left_out}_scores.tsv")
 
-    utils.scores_to_TSV(scores_left_out, out_path, file_name=f"left_out_scores.tsv")
+    return(scores_left_out)
 
 
-def main(interactome_file, causal_genes_file, canonical_genes_file, out_path, alpha, max_power):
+def main(interactome_file, causal_genes_file, gene2ENSG_file, patho, alpha, norm_alpha_div, max_power):
 
     logger.info("Parsing interactome")
-    interactome, genes = utils.parse_interactome(interactome_file)
+    interactome = utils.parse_interactome(interactome_file)
+
+    logger.info("Parsing gene-to-ENSG mapping")
+    (ENSG2gene, gene2ENSG) = utils.parse_gene2ENSG(gene2ENSG_file)
 
     logger.info("Parsing causal genes")
-    causal_genes = utils.parse_causal_genes(causal_genes_file, canonical_genes_file, genes)
+    causal_genes = utils.parse_causal_genes(causal_genes_file, gene2ENSG, interactome, patho)
 
-    leave_one_out(interactome, causal_genes, out_path, alpha, max_power)
+    logger.info("Calculating powers of adjacency matrix")
+    adjacency_matrices = newCentrality.get_adjacency_matrices(interactome, max_power)
+
+    logger.info("Calculating leave-one-out scores")
+    scores = leave_one_out(interactome, adjacency_matrices, causal_genes, alpha, norm_alpha_div)
+
+    logger.info("Printing leave-one-out scores")
+    utils.scores_to_TSV(scores, ENSG2gene)
+
+    logger.info("Done!")
 
 
 if __name__ == "__main__":
@@ -67,11 +73,12 @@ if __name__ == "__main__":
         description="Calculate leave-one-out for new centrality of infertility based on the guilt-by-association approach."
     )
 
-    parser.add_argument('-i', '--interactome_file', type=pathlib.Path)
-    parser.add_argument('--causal_genes_file', type=pathlib.Path)
-    parser.add_argument('--canonical_genes_file', type=pathlib.Path)
-    parser.add_argument('-o', '--out_path', type=pathlib.Path)
+    parser.add_argument('-i', '--interactome_file', type=str)
+    parser.add_argument('--causal_genes_file', type=str)
+    parser.add_argument('--patho', type=str)
+    parser.add_argument('--gene2ENSG_file', type=str)
     parser.add_argument('--alpha', type=float)
+    parser.add_argument('--norm_alpha_div', type=float)
     parser.add_argument('--max_power', type=int) 
 
     args = parser.parse_args()
@@ -79,9 +86,10 @@ if __name__ == "__main__":
     try:
         main(interactome_file=args.interactome_file,
              causal_genes_file=args.causal_genes_file,
-             canonical_genes_file=args.canonical_genes_file,
-             out_path=args.out_path,
+             patho=args.patho,
+             gene2ENSG_file=args.gene2ENSG_file,
              alpha=args.alpha,
+             norm_alpha_div=args.norm_alpha_div,
              max_power=args.max_power)
     except Exception as e:
         # details on the issue should be in the exception name, print it to stderr and die
