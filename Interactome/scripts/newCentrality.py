@@ -34,9 +34,9 @@ def calculate_scores(interactome, adjacency_matrices, causal_genes, alpha=0.5, n
             causal_genes_vec[ni] = 1
         ni += 1
 
-    scores_vec = numpy.zeros(len(causal_genes_array))
-    norm_factors_vec = numpy.zeros(len(causal_genes_array))
-    ones_vec = numpy.ones(len(causal_genes_array))
+    scores_vec = numpy.zeros(len(causal_genes_vec))
+    norm_factors_vec = numpy.zeros(len(causal_genes_vec))
+    ones_vec = numpy.ones(len(causal_genes_vec))
 
     # calculate normalized scores
     for d in range(1, len(adjacency_matrices)):
@@ -44,10 +44,10 @@ def calculate_scores(interactome, adjacency_matrices, causal_genes, alpha=0.5, n
         scores_vec += alpha ** d * A.dot(causal_genes_vec)
         norm_factors_vec += (alpha / norm_alpha_div) ** d * A.dot(ones_vec)
 
-    scores_array_normalized = scores_vec / norm_factors_vec
+    scores_vec_normalized = scores_vec / norm_factors_vec
 
     # map ENSGs to scores
-    scores = dict(zip(interactome.nodes(), scores_array_normalized))
+    scores = dict(zip(interactome.nodes(), scores_vec_normalized))
 
     return scores
 
@@ -70,13 +70,18 @@ def get_adjacency_matrices(interactome, max_power=5):
 
     A = networkx.to_scipy_sparse_array(interactome, dtype=numpy.uint32)  # returns scipy.sparse._csr.csr_array
     res = A
-    res.setdiag(0)
+    # manually zero only the non-zero diagonal elements: this is identical to res.setdiag(0)
+    # but faster and doesn't emit a warning (https://github.com/scipy/scipy/issues/11600)
+    nonzero, = res.diagonal().nonzero()
+    res[nonzero, nonzero] = 0
     adjacency_matrices.append(res)
 
     # @ - matrix multiplication
     for power in range(2, max_power + 1):
         res = res @ A
-        res.setdiag(0)
+        # again, same as res.setdiag(0) but faster and quiet
+        nonzero, = res.diagonal().nonzero()
+        res[nonzero, nonzero] = 0
         adjacency_matrices.append(res)
 
     logger.debug("Done building %i matrices", len(adjacency_matrices) - 1)
@@ -130,6 +135,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    # I don't know argparse but you have to make sure the required args were passed,
+    # check that the provided args are OK, and print a USAGE if checks fail
+
     try:
         main(interactome_file=args.interactome_file,
              causal_genes_file=args.causal_genes_file,
@@ -138,6 +146,7 @@ if __name__ == "__main__":
              alpha=args.alpha,
              norm_alpha_div=args.norm_alpha_div,
              max_power=args.max_power)
+        # this doesn't work, the default args defined for main() are ignored
 
     except Exception as e:
         # details on the issue should be in the exception name, print it to stderr and die
