@@ -59,8 +59,8 @@ def get_adjacency_matrices(interactome, max_power=5):
     - max_power: int
 
     returns:
-    - adjacency_matrices: list of scipy sparse arrays, array at index i (starting at i==1) is A**i
-      where A is the adjacency matrix of interactome
+    - adjacency_matrices: list of scipy sparse arrays, array at index i (starting at i==1)
+      is A**i (except the diagonal is zeroed) where A is the adjacency matrix of interactome
     '''
     # initialize, element at index 0 is never used
     adjacency_matrices = [0]
@@ -76,20 +76,21 @@ def get_adjacency_matrices(interactome, max_power=5):
         res.setdiag(0)
         adjacency_matrices.append(res)
 
+    logger.debug("Done building %i matrices", len(adjacency_matrices) - 1)
     return adjacency_matrices
 
 
-def main(interactome_file, causal_genes_file, canonical_genes_file, out_path, alpha=0.5, norm_alpha_div=1.0, max_power=5, out_file="scores.tsv"):
+def main(interactome_file, causal_genes_file, patho="MMAF", gene2ENSG_file, out_path, alpha=0.5, norm_alpha_div=1.0, max_power=5, out_file="scores.tsv"):
 
     logger.info
 
     logger.info("Parsing interactome")
-    interactome, genes = utils.parse_interactome(interactome_file)
+    interactome = utils.parse_interactome(interactome_file)
 
     logger.info("Parsing causal genes")
-    causal_genes = utils.parse_causal_genes(causal_genes_file, canonical_genes_file, genes)
+    causal_genes = utils.parse_causal_genes(causal_genes_file, gene2ENSG_file, patho)
 
-    logger.info("Calculating adjacency matrices")
+    logger.info("Calculating powers of adjacency matrix")
     adjacency_matrices = get_adjacency_matrices(interactome, max_power=max_power)
 
     logger.info("Calculating scores")
@@ -115,7 +116,8 @@ if __name__ == "__main__":
 
     parser.add_argument('-i', '--interactome_file', type=pathlib.Path)
     parser.add_argument('--causal_genes_file', type=pathlib.Path)
-    parser.add_argument('--canonical_genes_file', type=pathlib.Path)
+    parser.add_argument('--patho', type=str)
+    parser.add_argument('--gene2ENSG_file', type=pathlib.Path)
     parser.add_argument('-o', '--out_path', type=pathlib.Path)
     parser.add_argument('--alpha', type=float)
     parser.add_argument('--norm_alpha_div', type=float)
@@ -127,7 +129,8 @@ if __name__ == "__main__":
     try:
         main(interactome_file=args.interactome_file,
              causal_genes_file=args.causal_genes_file,
-             canonical_genes_file=args.canonical_genes_file,
+             patho=args.patho,
+             gene2ENSG_file=args.gene2ENSG_file,
              out_path=args.out_path,
              alpha=args.alpha,
              norm_alpha_div=args.norm_alpha_div,
