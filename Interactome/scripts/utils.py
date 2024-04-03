@@ -42,8 +42,9 @@ def parse_interactome(interactome_file) -> networkx.Graph:
         interactome.add_edge(gene1, gene2)
         num_edges += 1
 
-    logger.info("built non-redundant network from %i non-self interactions, resulting in %i edges",
-                num_edges, len(interactome.edges()))
+    logger.info("built non-redundant network from %i non-self interactions, " +
+                "resulting in %i edges between %i nodes",
+                num_edges, len(interactome.edges()), len(interactome.nodes))
     return (interactome)
 
 def parse_gene2ENSG(gene2ENSG_file):
