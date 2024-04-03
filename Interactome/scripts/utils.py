@@ -6,20 +6,18 @@ import networkx
 logger = logging.getLogger(__name__)
 
 
-def parse_interactome(interactome_file) -> tuple[networkx.Graph, dict]:
+def parse_interactome(interactome_file) -> networkx.Graph:
     '''
-    Creates a networkx.Graph interactome.
+    Creates a networkx.Graph representing the interactome
 
     arguments:
-    - interactome_file: path to interactome SIF file, type=str
-      with 3 columns: gene1 pp gene2
+    - interactome_file: filename (with path) of interactome in SIF format (ie
+    3 tab-separated columns: gene1 pp gene2), type=str
 
     returns:
     - interactome: type=networkx.Graph
-    - genes: dict with key=gene value=0
     '''
     interactome = networkx.Graph()
-    genes = {}
 
     try:
         f = open(interactome_file, 'r')
@@ -28,8 +26,8 @@ def parse_interactome(interactome_file) -> tuple[networkx.Graph, dict]:
         raise Exception("cannot open provided interactome file")
 
     for line in f:
-        line_splitted = line.rstrip().split('\t')
-        if len(line_splitted) != 3:
+        split_line = line.rstrip().split('\t')
+        if len(split_line) != 3:
             logger.error("SIF file %s has bad line (not 3 tab-separated fields): %s", interactome_file, line)
             raise Exception("Bad line in the interactome file")
 
@@ -40,15 +38,13 @@ def parse_interactome(interactome_file) -> tuple[networkx.Graph, dict]:
             continue
         # else: ppopulate structures
         interactome.add_edge(gene1, gene2)
-        genes[gene1] = 0
-        genes[gene2] = 0
 
-    return (interactome, genes)
+    return (interactome)
 
 
-def parse_causal_genes(causal_genes_file, canonical_genes_file, genes) -> dict:
+def parse_causal_genes(causal_genes_file, gene2ENSG_file, genes) -> dict:
     '''
-    Creates a dictionary of all genes in the interactome, key=gene, value=1 if causal, 0 otherwise.
+    Creates a dictionary of all genes in the interactome, key=ENSG, value=1 if causal, 0 otherwise.
 
     arguments:
     - causal_genes_file: path to known causal genes CSV file, type=str
@@ -59,7 +55,7 @@ def parse_causal_genes(causal_genes_file, canonical_genes_file, genes) -> dict:
     NOTE: pathology of interest is hardcoded
 
     returns:
-    - causal_genes: dict with key=gene, value=1 if causal, 0 otherwise
+    - causal_genes: dict with key=ENSG, value=1 if causal, 0 otherwise
     '''
     causal_genes = genes.copy()
     canonical_genes = {}
