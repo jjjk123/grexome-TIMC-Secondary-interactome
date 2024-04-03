@@ -15,7 +15,7 @@ import utils
 logger = logging.getLogger(__name__)
 
 
-def calculate_scores(interactome, adjacency_matrices, causal_genes, alpha=0.5, norm_alpha_div=1.0, max_power=5) -> dict:
+def calculate_scores(interactome, adjacency_matrices, causal_genes, alpha=0.5, norm_alpha_div=1.0) -> dict:
     '''
     Calculates scores for every gene in the interactome based on the proximity to causal genes.
 
@@ -34,7 +34,7 @@ def calculate_scores(interactome, adjacency_matrices, causal_genes, alpha=0.5, n
     norm_factors_array = numpy.zeros((len(causal_genes_array)))
 
     # calculate normalized scores
-    for d in range(max_power):
+    for d in range(1, len(adjacency_matrices)):
         A = adjacency_matrices[d]
 
         # numpy.dot is not aware of sparse arrays, todense() should be used
@@ -71,7 +71,7 @@ def get_adjacency_matrices(interactome, max_power=5):
     adjacency_matrices.append(res)
 
     # @ - matrix multiplication
-    for power in range(max_power - 1):
+    for power in range(2, max_power + 1):
         res = res @ A
         res.setdiag(0)
         adjacency_matrices.append(res)
@@ -81,8 +81,6 @@ def get_adjacency_matrices(interactome, max_power=5):
 
 
 def main(interactome_file, causal_genes_file, patho="MMAF", gene2ENSG_file, out_path, alpha=0.5, norm_alpha_div=1.0, max_power=5, out_file="scores.tsv"):
-
-    logger.info
 
     logger.info("Parsing interactome")
     interactome = utils.parse_interactome(interactome_file)
@@ -94,7 +92,7 @@ def main(interactome_file, causal_genes_file, patho="MMAF", gene2ENSG_file, out_
     adjacency_matrices = get_adjacency_matrices(interactome, max_power=max_power)
 
     logger.info("Calculating scores")
-    scores = calculate_scores(interactome, adjacency_matrices, causal_genes, alpha=alpha, norm_alpha_div=norm_alpha_div, max_power=max_power)
+    scores = calculate_scores(interactome, adjacency_matrices, causal_genes, alpha=alpha, norm_alpha_div=norm_alpha_div)
 
     logger.info("Done!")
     utils.scores_to_TSV(scores, out_path, file_name=out_file)
