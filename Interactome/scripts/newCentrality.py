@@ -20,6 +20,7 @@ def calculate_scores(interactome, adjacency_matrices, causal_genes, alpha=0.5, n
 
     arguments:
     - interactome: type=networkx.Graph
+    - adjacency_matrices: list of scipy sparse arrays as returned by get_adjacency_matrices()
     - causal_genes: dict of causal genes with key=ENSG, value=1
 
     returns:
@@ -100,7 +101,7 @@ def main(interactome_file, causal_genes_file, gene2ENSG_file, patho="MMAF", alph
     causal_genes = utils.parse_causal_genes(causal_genes_file, gene2ENSG, patho)
 
     logger.info("Calculating powers of adjacency matrix")
-    adjacency_matrices = get_adjacency_matrices(interactome, max_power=max_power)
+    adjacency_matrices = get_adjacency_matrices(interactome, max_power)
 
     logger.info("Calculating scores")
     scores = calculate_scores(interactome, adjacency_matrices, causal_genes, alpha=alpha, norm_alpha_div=norm_alpha_div)
