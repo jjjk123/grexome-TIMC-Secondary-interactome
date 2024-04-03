@@ -98,13 +98,13 @@ def main(interactome_file, causal_genes_file, gene2ENSG_file, patho="MMAF", alph
     (ENSG2gene, gene2ENSG) = utils.parse_gene2ENSG(gene2ENSG_file)
 
     logger.info("Parsing causal genes")
-    causal_genes = utils.parse_causal_genes(causal_genes_file, gene2ENSG, patho)
+    causal_genes = utils.parse_causal_genes(causal_genes_file, gene2ENSG, interactome, patho)
 
     logger.info("Calculating powers of adjacency matrix")
     adjacency_matrices = get_adjacency_matrices(interactome, max_power)
 
     logger.info("Calculating scores")
-    scores = calculate_scores(interactome, adjacency_matrices, causal_genes, alpha=alpha, norm_alpha_div=norm_alpha_div)
+    scores = calculate_scores(interactome, adjacency_matrices, causal_genes, alpha, norm_alpha_div)
 
     logger.info("Printing scores")
     utils.scores_to_TSV(scores, ENSG2gene)
