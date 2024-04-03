@@ -84,13 +84,13 @@ def parse_gene2ENSG(gene2ENSG_file):
             raise Exception("Bad line in the gene2ENSG file")
         gene_name, ENSG = split_line
         if ENSG in ENSG2gene:
-            logger.warning("ENSG %s mapped multiple times in %s, keeping the first mapping",
-                           ENSG, gene2ENSG_file)
+            logger.warning("ENSG %s mapped to multiple genes, keeping the first == %s",
+                           ENSG, ENSG2gene[ENSG])
         else:
             ENSG2gene[ENSG] = gene_name
         if gene_name in gene2ENSG:
-            logger.warning("gene_name %s mapped multiple times in %s, keeping the first mapping",
-                           gene_name, gene2ENSG_file)
+            logger.warning("gene %s mapped to multiple ENSGs, keeping the first == %s",
+                           gene_name, gene2ENSG[gene_name])
         else:
             gene2ENSG[gene_name] = ENSG
 
@@ -98,7 +98,7 @@ def parse_gene2ENSG(gene2ENSG_file):
     return(ENSG2gene, gene2ENSG)
 
 
-def parse_causal_genes(causal_genes_file, gene2ENSG, patho) -> dict:
+def parse_causal_genes(causal_genes_file, gene2ENSG, interactome, patho) -> dict:
     '''
     Build a dict of causal ENSGs for patho
 
@@ -106,10 +106,11 @@ def parse_causal_genes(causal_genes_file, gene2ENSG, patho) -> dict:
     - causal_genes_file: filename (with path) of known causal genes TSV file
       with 2 columns: gene_name pathologyID, type=str
     - gene2ENSG: dict of all known genes, key=gene_name, value=ENSG
+    - interactome: networkx.Graph
     - pathologyID of interest, causal genes for other pathologyIDs are ignored
 
     returns:
-    - causal_genes: dict of all causal genes with key=ENSG, value=1
+    - causal_genes: dict of all causal genes present in interactome, with key=ENSG, value=1
     '''
     causal_genes = {}
 
@@ -132,10 +133,13 @@ def parse_causal_genes(causal_genes_file, gene2ENSG, patho) -> dict:
             continue
         elif gene_name in gene2ENSG:
             ENSG = gene2ENSG[gene_name]
-            causal_genes[ENSG] = 1
+            if interactome.has_node(ENSG):
+                causal_genes[ENSG] = 1
+            else:
+                logger.warning("causal gene %s == %s is not in interactome, skipping it",
+                               gene_name, ENSG)
         else:
-            logger.warning("causal gene %s from file %s is not in gene2ENSG, skipping it",
-                           gene_name, causal_genes_file)
+            logger.warning("causal gene %s is not in gene2ENSG, skipping it", gene_name)
 
     f_causal.close()
 
