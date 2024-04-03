@@ -18,31 +18,36 @@ logger = logging.getLogger(__name__)
 def calculate_scores(interactome, adjacency_matrices, causal_genes, alpha=0.5, norm_alpha_div=1.0) -> dict:
     '''
     Calculates scores for every gene in the interactome based on the proximity to causal genes.
+    NEED TO PROVIDE THE FORMULA HERE (user doesn't want to have to read the code to know what score
+    you are calculating)
 
     arguments:
     - interactome: type=networkx.Graph
-    - causal_genes: dict with key=gene, value=1 if causal, 0 otherwise
-    NOTE: alpha hardcoded
+    - causal_genes: dict of causal genes with key=ENSG, value=1
 
     returns:
-    - scores: dict with key=gene, value=score
+    - scores: dict with key=ENSG, value=score
     '''
-    # 1D numpy array for genes in the interactome: 1 if causal gene, 0 otherwise, size=len(nodes in interactome)
-    causal_genes_array = numpy.array([1 if causal_genes.get(n) == 1 else 0 for n in interactome.nodes()])
+    # 1D numpy array for genes in the interactome: 1 if causal gene, 0 otherwise,
+    # size=len(nodes in interactome), ordered as in interactome.nodes()
+    causal_genes_vec = numpy.zeros(len(interactome.nodes()), dtype=numpy.uint8)
+    ni = 0
+    for n in interactome.nodes():
+        if n in causal_genes:
+            causal_genes_vec[ni] = 1
+        ni += 1
 
-    scores_array = numpy.zeros((len(causal_genes_array)))
-    norm_factors_array = numpy.zeros((len(causal_genes_array)))
+    scores_vec = numpy.zeros(len(causal_genes_array))
+    norm_factors_vec = numpy.zeros(len(causal_genes_array))
+    ones_vec = numpy.ones(len(causal_genes_array))
 
     # calculate normalized scores
     for d in range(1, len(adjacency_matrices)):
         A = adjacency_matrices[d]
+        scores_vec += alpha ** d * A.dot(causal_genes_vec)
+        norm_factors_vec += (alpha / norm_alpha_div) ** d * A.dot(ones_vec)
 
-        # numpy.dot is not aware of sparse arrays, todense() should be used
-        scores_array += alpha ** d * numpy.dot(A.todense(), causal_genes_array)
-
-        norm_factors_array += (alpha / norm_alpha_div) ** d * A.sum(axis=0)
-
-    scores_array_normalized = numpy.squeeze(scores_array / norm_factors_array)
+    scores_array_normalized = scores_vec / norm_factors_vec
 
     # map ENSGs to scores
     scores = dict(zip(interactome.nodes(), scores_array_normalized))
@@ -60,12 +65,13 @@ def get_adjacency_matrices(interactome, max_power=5):
 
     returns:
     - adjacency_matrices: list of scipy sparse arrays, array at index i (starting at i==1)
-      is A**i (except the diagonal is zeroed) where A is the adjacency matrix of interactome
+      is A**i (except the diagonal is zeroed) where A is the adjacency matrix of interactome,
+      rows and columns are ordered as in interactome.nodes()
     '''
     # initialize, element at index 0 is never used
     adjacency_matrices = [0]
 
-    A = networkx.to_scipy_sparse_array(interactome)  # returns scipy.sparse._csr.csr_array
+    A = networkx.to_scipy_sparse_array(interactome, dtype=numpy.uint32)  # returns scipy.sparse._csr.csr_array
     res = A
     res.setdiag(0)
     adjacency_matrices.append(res)
