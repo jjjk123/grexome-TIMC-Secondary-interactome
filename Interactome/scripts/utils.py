@@ -18,6 +18,7 @@ def parse_interactome(interactome_file) -> networkx.Graph:
     - interactome: type=networkx.Graph
     '''
     interactome = networkx.Graph()
+    num_edges = 0
 
     try:
         f = open(interactome_file, 'r')
@@ -39,11 +40,14 @@ def parse_interactome(interactome_file) -> networkx.Graph:
             continue
         # else: ppopulate structures
         interactome.add_edge(gene1, gene2)
+        num_edges += 1
 
+    logger.info("built non-redundant network from %i non-self interactions, resulting in %i edges",
+                num_edges, len(interactome.edges()))
     return (interactome)
 
 
-def parse_causal_genes(causal_genes_file, gene2ENSG_file, patho="MMAF") -> dict:
+def parse_causal_genes(causal_genes_file, gene2ENSG_file, patho) -> dict:
     '''
     Build a dict of causal ENSGs for patho
 
@@ -100,9 +104,14 @@ def parse_causal_genes(causal_genes_file, gene2ENSG_file, patho="MMAF") -> dict:
         elif gene_name in gene2ENSG:
             ENSG = gene2ENSG[gene_name]
             causal_genes[ENSG] = 1
+        else:
+            logger.warning("causal gene %s from file %s is not in gene2ENSG file %s, skipping it",
+                           gene_name, causal_genes_file, gene2ENSG_file)
 
     f_causal.close()
 
+    logger.info("found %i causal genes with known ENSG for pathology %s",
+                len(causal_genes), patho)
     return causal_genes
 
 
