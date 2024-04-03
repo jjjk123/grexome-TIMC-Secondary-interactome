@@ -68,7 +68,7 @@ def parse_gene2ENSG(gene2ENSG_file):
         raise Exception("cannot open provided gene2ENSG file")
 
     # check header and skip
-    line = next(f_canonical)
+    line = next(f_gene2ENSG)
     line = line.rstrip()
     if line != "GENE\tENSG":
         logger.error("gene2ENSG file %s doesn't have the expected header",
@@ -153,7 +153,7 @@ def scores_to_TSV(scores, ENSG2gene):
     '''
 
     # header
-    print("ENSG\tGENE\tSCORE\n")
+    print("ENSG\tGENE\tSCORE")
 
     for (ENSG, score) in sorted(scores.items()):
         # GENE defaults to "" if we don't know the gene name of ENSG
