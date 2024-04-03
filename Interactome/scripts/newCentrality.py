@@ -86,13 +86,16 @@ def get_adjacency_matrices(interactome, max_power=5):
     return adjacency_matrices
 
 
-def main(interactome_file, causal_genes_file, patho="MMAF", gene2ENSG_file, out_path, alpha=0.5, norm_alpha_div=1.0, max_power=5, out_file="scores.tsv"):
+def main(interactome_file, causal_genes_file, patho="MMAF", gene2ENSG_file, alpha=0.5, norm_alpha_div=1.0, max_power=5):
 
     logger.info("Parsing interactome")
     interactome = utils.parse_interactome(interactome_file)
 
+    logger.info("Parsing gene-to-ENSG mapping")
+    (ENSG2gene, gene2ENSG) = utils.parse_gene2ENSG(gene2ENSG_file)
+
     logger.info("Parsing causal genes")
-    causal_genes = utils.parse_causal_genes(causal_genes_file, gene2ENSG_file, patho)
+    causal_genes = utils.parse_causal_genes(causal_genes_file, gene2ENSG, patho)
 
     logger.info("Calculating powers of adjacency matrix")
     adjacency_matrices = get_adjacency_matrices(interactome, max_power=max_power)
@@ -100,8 +103,10 @@ def main(interactome_file, causal_genes_file, patho="MMAF", gene2ENSG_file, out_
     logger.info("Calculating scores")
     scores = calculate_scores(interactome, adjacency_matrices, causal_genes, alpha=alpha, norm_alpha_div=norm_alpha_div)
 
+    logger.info("Printing scores")
+    utils.scores_to_TSV(scores, ENSG2gene)
+
     logger.info("Done!")
-    utils.scores_to_TSV(scores, out_path, file_name=out_file)
 
 
 if __name__ == "__main__":
@@ -122,11 +127,9 @@ if __name__ == "__main__":
     parser.add_argument('--causal_genes_file', type=pathlib.Path)
     parser.add_argument('--patho', type=str)
     parser.add_argument('--gene2ENSG_file', type=pathlib.Path)
-    parser.add_argument('-o', '--out_path', type=pathlib.Path)
     parser.add_argument('--alpha', type=float)
     parser.add_argument('--norm_alpha_div', type=float)
     parser.add_argument('--max_power', type=int)
-    parser.add_argument('--out_file', type=str)
 
     args = parser.parse_args()
 
@@ -135,11 +138,9 @@ if __name__ == "__main__":
              causal_genes_file=args.causal_genes_file,
              patho=args.patho,
              gene2ENSG_file=args.gene2ENSG_file,
-             out_path=args.out_path,
              alpha=args.alpha,
              norm_alpha_div=args.norm_alpha_div,
-             max_power=args.max_power,
-             out_file=args.out_file)
+             max_power=args.max_power)
 
     except Exception as e:
         # details on the issue should be in the exception name, print it to stderr and die
