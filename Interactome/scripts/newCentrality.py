@@ -1,13 +1,10 @@
 import logging
-import sys
+import networkx
+import numpy
 import os
+import sys
 
 import argparse
-import pathlib
-
-import numpy
-
-import networkx
 
 import utils
 
@@ -86,7 +83,7 @@ def get_adjacency_matrices(interactome, max_power=5):
     return adjacency_matrices
 
 
-def main(interactome_file, causal_genes_file, patho="MMAF", gene2ENSG_file, alpha=0.5, norm_alpha_div=1.0, max_power=5):
+def main(interactome_file, causal_genes_file, gene2ENSG_file, patho="MMAF", alpha=0.5, norm_alpha_div=1.0, max_power=5):
 
     logger.info("Parsing interactome")
     interactome = utils.parse_interactome(interactome_file)
@@ -123,10 +120,10 @@ if __name__ == "__main__":
         description="Calculate new centrality for new candidates of infertility based on the guilt-by-association approach."
     )
 
-    parser.add_argument('-i', '--interactome_file', type=pathlib.Path)
-    parser.add_argument('--causal_genes_file', type=pathlib.Path)
+    parser.add_argument('-i', '--interactome_file', type=str)
+    parser.add_argument('--causal_genes_file', type=str)
     parser.add_argument('--patho', type=str)
-    parser.add_argument('--gene2ENSG_file', type=pathlib.Path)
+    parser.add_argument('--gene2ENSG_file', type=str)
     parser.add_argument('--alpha', type=float)
     parser.add_argument('--norm_alpha_div', type=float)
     parser.add_argument('--max_power', type=int)
