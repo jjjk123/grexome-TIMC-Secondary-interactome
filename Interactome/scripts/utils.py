@@ -12,7 +12,7 @@ def parse_interactome(interactome_file) -> networkx.Graph:
 
     arguments:
     - interactome_file: filename (with path) of interactome in SIF format (ie
-    3 tab-separated columns: gene1 pp gene2), type=str
+      3 tab-separated columns: ENSG1 pp ENSG2), type=str
 
     returns:
     - interactome: type=networkx.Graph
@@ -46,32 +46,35 @@ def parse_interactome(interactome_file) -> networkx.Graph:
                 num_edges, len(interactome.edges()))
     return (interactome)
 
-
-def parse_causal_genes(causal_genes_file, gene2ENSG_file, patho) -> dict:
+def parse_gene2ENSG(gene2ENSG_file):
     '''
-    Build a dict of causal ENSGs for patho
+    Build dicts mapping ENSGs to gene_names and gene_names to ENSGs
 
     arguments:
-    - causal_genes_file: filename (with path) of known causal genes TSV file
-      with 2 columns: gene_name pathologyID, type=str
     - gene2ENSG_file: filename (with path) of TSV file mapping gene names to ENSGs, 
-      type=str with 2 columns: gene_name, ENSG
-    - pathologyID of interest, causal genes for other pathologyIDs are ignored
+      type=str with 2 columns: GENE ENSG
 
-    returns:
-    - causal_genes: dict of all causal genes with key=ENSG, value=1
+    returns 2 dicts of all genes in the gene2ENSG_file:
+    - ENSG2gene: key=ENSG, value=gene_name
+    - gene2ENSG: key = gene_name, value=ENSG
     '''
-    causal_genes = {}
-
-    # populate gene2ENSG: key=gene_name, value=ENSG
+    ENSG2gene = {}
     gene2ENSG = {}
+
     try:
         f_gene2ENSG = open(gene2ENSG_file, 'r')
     except Exception as e:
         logger.error("Opening provided gene2ENSG file %s: %s", gene2ENSG_file, e)
         raise Exception("cannot open provided gene2ENSG file")
 
-    # not sure if there's a header line -> just put everything in gene2ENSG
+    # check header and skip
+    line = next(f_canonical)
+    line = line.rstrip()
+    if line != "GENE\tENSG":
+        logger.error("gene2ENSG file %s doesn't have the expected header",
+                     gene2ENSG_file)
+        raise Exception("Bad header in the gene2ENSG file")
+
     for line in f_gene2ENSG:
         split_line = line.rstrip().split('\t')
         if len(split_line) != 2:
@@ -79,11 +82,36 @@ def parse_causal_genes(causal_genes_file, gene2ENSG_file, patho) -> dict:
                          gene2ENSG_file, line)
             raise Exception("Bad line in the gene2ENSG file")
         gene_name, ENSG = split_line
-        gene2ENSG[gene_name] = ENSG
+        if ENSG in ENSG2gene:
+            logger.warning("ENSG %s mapped multiple times in %s, keeping the first mapping",
+                           ENSG, gene2ENSG_file)
+        else:
+            ENSG2gene[ENSG] = gene_name
+        if gene_name in gene2ENSG:
+            logger.warning("gene_name %s mapped multiple times in %s, keeping the first mapping",
+                           gene_name, gene2ENSG_file)
+        else:
+            gene2ENSG[gene_name] = ENSG
 
     f_gene2ENSG.close()
+    return(ENSG2gene, gene2ENSG)
 
-    # parse causal genes
+
+def parse_causal_genes(causal_genes_file, gene2ENSG, patho) -> dict:
+    '''
+    Build a dict of causal ENSGs for patho
+
+    arguments:
+    - causal_genes_file: filename (with path) of known causal genes TSV file
+      with 2 columns: gene_name pathologyID, type=str
+    - gene2ENSG: dict of all known genes, key=gene_name, value=ENSG
+    - pathologyID of interest, causal genes for other pathologyIDs are ignored
+
+    returns:
+    - causal_genes: dict of all causal genes with key=ENSG, value=1
+    '''
+    causal_genes = {}
+
     try:
         f_causal = open(causal_genes_file, 'r')
     except Exception as e:
@@ -105,31 +133,32 @@ def parse_causal_genes(causal_genes_file, gene2ENSG_file, patho) -> dict:
             ENSG = gene2ENSG[gene_name]
             causal_genes[ENSG] = 1
         else:
-            logger.warning("causal gene %s from file %s is not in gene2ENSG file %s, skipping it",
-                           gene_name, causal_genes_file, gene2ENSG_file)
+            logger.warning("causal gene %s from file %s is not in gene2ENSG, skipping it",
+                           gene_name, causal_genes_file)
 
     f_causal.close()
 
     logger.info("found %i causal genes with known ENSG for pathology %s",
                 len(causal_genes), patho)
-    return causal_genes
+    return(causal_genes)
 
 
-def scores_to_TSV(scores, out_path, file_name="scores.tsv"):
+def scores_to_TSV(scores, ENSG2gene):
     '''
-    Save scoring results to a TSV file with 2 columns: gene, score.
+    Print scores to stdout in TSV format, 3 columns: ENSG gene_name score
 
     arguments:
-    - scores: dict with key=gene, value=score
-    - out_path: path to save TSV, type=pathlib.Path
+    - scores: dict with key=ENSG, value=score
+    - ENSG2gene: dict of all known gene names, key=ENSG, value=gene_name
     '''
-    out_file = out_path / file_name
-    f = open(out_file, 'w+')
 
-    # file header
-    f.write("node" + "\t" + "score" + '\n')
+    # header
+    print("ENSG\tGENE\tSCORE\n")
 
-    for (node, score) in sorted(scores.items()):
-        f.write(str(node) + '\t' + str(score) + '\n')
+    for (ENSG, score) in sorted(scores.items()):
+        # GENE defaults to "" if we don't know the gene name of ENSG
+        gene = ""
+        if ENSG in ENSG2gene:
+            gene = ENSG2gene[ENSG]
+        print(ENSG + "\t" + gene + "\t" + str(score))
 
-    f.close()
