@@ -4,6 +4,8 @@ import numpy
 import os
 import sys
 
+import pathlib
+
 import argparse
 
 import utils
@@ -12,11 +14,14 @@ import utils
 logger = logging.getLogger(__name__)
 
 
-def calculate_scores(interactome, adjacency_matrices, causal_genes, alpha=0.5, norm_alpha_div=1.0) -> dict:
+def calculate_scores(interactome, adjacency_matrices, causal_genes, alpha, norm_alpha_div) -> dict:
     '''
     Calculates scores for every gene in the interactome based on the proximity to causal genes.
-    NEED TO PROVIDE THE FORMULA HERE (user doesn't want to have to read the code to know what score
-    you are calculating)
+    Formula (for each node i):
+    {
+    score_i = 1 ; if gene is causal
+    score_i = (1/norm_factor) * sum_k(alpha**k) * sum_j[(A**k)_ij * score_j] ; otherwise
+    }
 
     arguments:
     - interactome: type=networkx.Graph
@@ -89,7 +94,7 @@ def get_adjacency_matrices(interactome, max_power=5):
     return adjacency_matrices
 
 
-def main(interactome_file, causal_genes_file, gene2ENSG_file, patho="MMAF", alpha=0.5, norm_alpha_div=1.0, max_power=5):
+def main(interactome_file, causal_genes_file, gene2ENSG_file, patho, alpha, norm_alpha_div, max_power):
 
     logger.info("Parsing interactome")
     interactome = utils.parse_interactome(interactome_file)
@@ -126,13 +131,13 @@ if __name__ == "__main__":
         description="Calculate new centrality for new candidates of infertility based on the guilt-by-association approach."
     )
 
-    parser.add_argument('-i', '--interactome_file', type=str)
-    parser.add_argument('--causal_genes_file', type=str)
-    parser.add_argument('--patho', type=str)
-    parser.add_argument('--gene2ENSG_file', type=str)
-    parser.add_argument('--alpha', type=float)
-    parser.add_argument('--norm_alpha_div', type=float)
-    parser.add_argument('--max_power', type=int)
+    parser.add_argument('-i', '--interactome_file', type=pathlib.Path)
+    parser.add_argument('--causal_genes_file', type=pathlib.Path)
+    parser.add_argument('--patho', default='MMAF', type=str)
+    parser.add_argument('--gene2ENSG_file', type=pathlib.Path)
+    parser.add_argument('--alpha', default=0.5, type=float)
+    parser.add_argument('--norm_alpha_div', default=1.0, type=float)
+    parser.add_argument('--max_power', default=5, type=int)
 
     args = parser.parse_args()
 
