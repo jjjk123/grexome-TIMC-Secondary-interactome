@@ -131,10 +131,10 @@ if __name__ == "__main__":
         description="Calculate new centrality for new candidates of infertility based on the guilt-by-association approach."
     )
 
-    parser.add_argument('-i', '--interactome_file', type=pathlib.Path)
-    parser.add_argument('--causal_genes_file', type=pathlib.Path)
+    parser.add_argument('-i', '--interactome_file', type=pathlib.Path, required=True)
+    parser.add_argument('--causal_genes_file', type=pathlib.Path, required=True)
+    parser.add_argument('--gene2ENSG_file', type=pathlib.Path, required=True)
     parser.add_argument('--patho', default='MMAF', type=str)
-    parser.add_argument('--gene2ENSG_file', type=pathlib.Path)
     parser.add_argument('--alpha', default=0.5, type=float)
     parser.add_argument('--norm_alpha_div', default=1.0, type=float)
     parser.add_argument('--max_power', default=5, type=int)
