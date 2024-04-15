@@ -1,110 +1,119 @@
 import logging
-import sys
+import networkx
+import numpy
 import os
+import sys
 
-import argparse
 import pathlib
 
-import numpy
+import argparse
 
-import networkx
-
-from utils import parse_interactome, parse_causal_genes, scores_to_TSV
+import utils
 
 # set up logger, using inherited config, in case we get called as a module
 logger = logging.getLogger(__name__)
 
 
-def calculate_scores(interactome, adjacency_matrices, causal_genes, alpha=0.5, max_power=5) -> dict:
+def calculate_scores(interactome, adjacency_matrices, causal_genes, alpha) -> dict:
     '''
     Calculates scores for every gene in the interactome based on the proximity to causal genes.
+    Formula (for each node i):
+    {
+    score_i = 1 ; if gene is causal
+    score_i = (1/norm_factor) * sum_k(alpha**k) * sum_j[(A**k)_ij * score_j] ; otherwise
+    }
 
     arguments:
     - interactome: type=networkx.Graph
-    - causal_genes: dict with key=gene, value=1 if causal, 0 otherwise
-    NOTE: alpha hardcoded
+    - adjacency_matrices: list of scipy sparse arrays as returned by get_adjacency_matrices()
+    - causal_genes: dict of causal genes with key=ENSG, value=1
 
     returns:
-    - scores: dict with key=gene, value=score
+    - scores: dict with key=ENSG, value=score
     '''
-    # 1D numpy array for genes in the interactome: 1 if causal gene, 0 otherwise, size=len(nodes in interactome)
-    causal_genes_array = numpy.array([1 if causal_genes.get(n) == 1 else 0 for n in interactome.nodes()])
+    # 1D numpy array for genes in the interactome: 1 if causal gene, 0 otherwise,
+    # size=len(nodes in interactome), ordered as in interactome.nodes()
+    causal_genes_vec = numpy.zeros(len(interactome.nodes()), dtype=numpy.uint8)
+    ni = 0
+    for n in interactome.nodes():
+        if n in causal_genes:
+            causal_genes_vec[ni] = 1
+        ni += 1
 
-    scores_array = numpy.zeros((len(causal_genes_array)))
+    scores_vec = numpy.zeros(len(causal_genes_vec))
+    norm_factors_vec = numpy.zeros(len(causal_genes_vec))
+    ones_vec = numpy.ones(len(causal_genes_vec))
 
     # calculate normalized scores
-    for d in range(1, max_power+1):
-        A = adjacency_matrices.get(d)
-
-        # numpy.dot is not aware of sparse arrays, todense() should be used
-        scores_array += alpha ** d * numpy.dot(A.todense(), causal_genes_array)
+    for d in range(1, len(adjacency_matrices)):
+        A = adjacency_matrices[d]
+        scores_vec += alpha ** d * A.dot(causal_genes_vec)
 
     # map ENSGs to scores
-    scores = dict(zip(interactome.nodes(), scores_array))
+    scores = dict(zip(interactome.nodes(), scores_vec))
 
     return scores
 
 
-def get_adjacency_matrices(interactome, max_power):
-    # initiate dict key=power, value=adjacency_matrix**power
-    adjacency_matrices = {}
-
-    A = networkx.to_scipy_sparse_array(interactome) # returns scipy.sparse._csr.csr_array
-    # exclude self-interactions
-    A.setdiag(0)
-    # normalize A column-wise
-    A = A / A.sum(axis=0)
-    adjacency_matrices[1] = A
-
-    # @ - matrix multiplication
-    res = A @ A
-    res.setdiag(0)
-    # res = res / res.sum(axis=0)
-    adjacency_matrices[2] = res
-
-    for power in range(2, max_power+1):
-        res = res @ A
-        res.setdiag(0)
-        # res = res / res.sum(axis=0)
-        adjacency_matrices[power] = res
-    
-    return adjacency_matrices
-
-def scores_to_TSV(scores, out_path, file_name="scores_pageRank.tsv"):
+def get_adjacency_matrices(interactome, max_power=5):
     '''
-    Save scoring results to a TSV file with 2 columns: gene, score.
+    Calculates powers of adjacency matrix.
 
     arguments:
-    - scores: dict with key=gene, value=score
-    - out_path: path to save TSV, type=pathlib.Path
+    - interactome: type=networkx.Graph
+    - max_power: int
+
+    returns:
+    - adjacency_matrices: list of scipy sparse arrays, array at index i (starting at i==1)
+      is A**i (except the diagonal is zeroed) where A is the adjacency matrix of interactome,
+      rows and columns are ordered as in interactome.nodes()
     '''
-    out_file = out_path / file_name
-    f = open(out_file, 'w+')
+    # initialize, element at index 0 is never used
+    adjacency_matrices = [0]
 
-    # file header
-    f.write("node" + "\t" + "score" + '\n')
+    A = networkx.to_scipy_sparse_array(interactome, dtype=numpy.uint32)  # returns scipy.sparse._csr.csr_array
+    res = A
+    # manually zero only the non-zero diagonal elements: this is identical to res.setdiag(0)
+    # but faster and doesn't emit a warning (https://github.com/scipy/scipy/issues/11600)
+    nonzero, = res.diagonal().nonzero()
+    res[nonzero, nonzero] = 0
+    # column-wise normalization
+    res = res / res.sum(axis=0)
+    adjacency_matrices.append(res)
 
-    for node, score in scores.items():
-        f.write(str(node) + '\t' + str(score) + '\n')
+    # @ - matrix multiplication
+    for power in range(2, max_power + 1):
+        res = res @ A
+        # again, same as res.setdiag(0) but faster and quiet
+        nonzero, = res.diagonal().nonzero()
+        res[nonzero, nonzero] = 0
+        adjacency_matrices.append(res)
 
-    f.close()
+    logger.debug("Done building %i matrices", len(adjacency_matrices) - 1)
+    return adjacency_matrices
 
-def main(interactome_file, causal_genes_file, canonical_genes_file, out_path):
+
+def main(interactome_file, causal_genes_file, gene2ENSG_file, patho, alpha, max_power):
 
     logger.info("Parsing interactome")
-    interactome, genes = parse_interactome(interactome_file)
+    interactome = utils.parse_interactome(interactome_file)
+
+    logger.info("Parsing gene-to-ENSG mapping")
+    (ENSG2gene, gene2ENSG) = utils.parse_gene2ENSG(gene2ENSG_file)
 
     logger.info("Parsing causal genes")
-    causal_genes = parse_causal_genes(causal_genes_file, canonical_genes_file, genes)
-    
-    logger.info("Calculating adjacency matrices")
-    adjacency_matrices = get_adjacency_matrices(interactome, max_power=10)
+    causal_genes = utils.parse_causal_genes(causal_genes_file, gene2ENSG, interactome, patho)
+
+    logger.info("Calculating powers of adjacency matrix")
+    adjacency_matrices = get_adjacency_matrices(interactome, max_power)
 
     logger.info("Calculating scores")
-    scores = calculate_scores(interactome, adjacency_matrices, causal_genes, max_power=10)
+    scores = calculate_scores(interactome, adjacency_matrices, causal_genes, alpha)
+
+    logger.info("Printing scores to stdout")
+    utils.scores_to_TSV(scores, ENSG2gene)
 
     logger.info("Done!")
-    scores_to_TSV(scores, out_path, file_name="scores_pageRank_d10.tsv")
 
 
 if __name__ == "__main__":
@@ -117,24 +126,27 @@ if __name__ == "__main__":
     logger = logging.getLogger(script_name)
 
     parser = argparse.ArgumentParser(
-        prog="newCentrality.py",
-        description="Calculate page rank centrality for new candidates of infertility based on the guilt-by-association approach."
+        prog=script_name,
+        description="Calculate PageRank centrality for new candidates of infertility based on the guilt-by-association approach."
     )
 
-    parser.add_argument('-i', '--interactome_file', type=pathlib.Path)
-    parser.add_argument('--causal_genes_file', type=pathlib.Path)
-    parser.add_argument('--canonical_genes_file', type=pathlib.Path)
-    # parser.add_argument('--new_candidates', type=str, nargs='+')
-    # parser.add_argument('--phenotype', type=str)
-    parser.add_argument('-o', '--out_path', type=pathlib.Path)
+    parser.add_argument('-i', '--interactome_file', type=pathlib.Path, required=True)
+    parser.add_argument('--causal_genes_file', type=pathlib.Path, required=True)
+    parser.add_argument('--gene2ENSG_file', type=pathlib.Path, required=True)
+    parser.add_argument('--patho', default='MMAF', type=str)
+    parser.add_argument('--alpha', default=0.5, type=float)
+    parser.add_argument('--max_power', default=5, type=int)
 
     args = parser.parse_args()
 
     try:
         main(interactome_file=args.interactome_file,
              causal_genes_file=args.causal_genes_file,
-             canonical_genes_file=args.canonical_genes_file,
-             out_path=args.out_path)
+             gene2ENSG_file=args.gene2ENSG_file,
+             patho=args.patho,
+             alpha=args.alpha,
+             max_power=args.max_power)
+
     except Exception as e:
         # details on the issue should be in the exception name, print it to stderr and die
         sys.stderr.write("ERROR in " + script_name + " : " + repr(e) + "\n")

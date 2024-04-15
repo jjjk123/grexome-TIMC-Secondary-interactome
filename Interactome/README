@@ -127,4 +127,13 @@ python leave_one_out_Leontief.py -i /home/kubicaj/calc/input/Interactome_human.s
 
 # New centrality v6
 # example usage:
-python scripts/newCentrality.py -i ~/calc/input/Interactome_human.sif --causal_genes_file ~/calc/input/causalGenes_allPhenotypes.csv --canonical_genes_file ~/calc/input/canonicalGenes.tsv -o ~/calc/output/New_centrality_v6/norm_alpha_div_1/ --alpha 0.1 --norm_alpha_div 1 --max_power 1 --out_file scores_d1_alpha01.tsv
+# old: python scripts/newCentrality.py -i ~/calc/input/Interactome_human.sif --causal_genes_file ~/calc/input/causalGenes_allPhenotypes.csv --canonical_genes_file ~/calc/input/canonicalGenes.tsv -o ~/calc/output/New_centrality_v6/norm_alpha_div_1/ --alpha 0.1 --norm_alpha_div 1 --max_power 1 --out_file scores_d1_alpha01.tsv
+python scripts/newCentrality.py -i ~/calc/input/Interactome_human.sif --causal_genes_file ~/calc/input/causalGenes_allPhenotypes.csv --gene2ENSG_file ~/calc/input/canonicalGenes.tsv 1>~/calc/output/New_centrality_v6/scores.tsv 2>~/calc/output/New_centrality_v6/log.txt --max_power 10
+# leave-one-out:
+python scripts/leave_one_out.py -i ~/calc/input/Interactome_human.sif --causal_genes_file ~/calc/input/causalGenes_allPhenotypes.csv --gene2ENSG_file ~/calc/input/canonicalGenes.tsv 1>~/calc/output/New_centrality_v6/alpha05_dmax5_alphanorm_1/scores_leave_one_out.tsv 2>~/calc/output/New_centrality_v6/alpha05_dmax5_alphanorm_1/log_leave_one_out.txt --max_power 5
+
+# PageRank centrality
+# example usage:
+python scripts/pageRankCentrality.py -i ~/calc/input/Interactome_human.sif --causal_genes_file ~/calc/input/causalGenes_allPhenotypes.csv --gene2ENSG_file ~/calc/input/canonicalGenes.tsv 1>~/calc/output/PageRank/alpha01_dmax10/scores.tsv 2>~/calc/output/PageRank/alpha01_dmax10/log.txt --alpha 0.1 --max_power 10
+# leave-one-out:
+python scripts/leave_one_out_pageRank.py -i ~/calc/input/Interactome_human.sif --causal_genes_file ~/calc/input/causalGenes_allPhenotypes.csv --gene2ENSG_file ~/calc/input/canonicalGenes.tsv 1>~/calc/output/PageRank/alpha01_dmax10/scores_leave_one_out.tsv 2>~/calc/output/PageRank/alpha01_dmax10/log_leave_one_out.txt --alpha 0.1 --max_power 10
