@@ -19,8 +19,8 @@ def calculate_scores(interactome, adjacency_matrices, causal_genes, alpha, norm_
     Calculates scores for every gene in the interactome based on the proximity to causal genes.
     Formula (for each node i):
     {
-    score_i = 1 ; if gene is causal
-    score_i = (1/norm_factor) * sum_k(alpha**k) * sum_j[(A**k)_ij * score_j] ; otherwise
+        score_i = 1 ; if gene is causal
+        score_i = (1/norm_factor) * sum_k(alpha**k) * sum_j[(A**k)_ij * score_j] ; otherwise
     }
 
     arguments:
@@ -40,17 +40,18 @@ def calculate_scores(interactome, adjacency_matrices, causal_genes, alpha, norm_
             causal_genes_vec[ni] = 1
         ni += 1
 
-    scores_vec = numpy.zeros(len(causal_genes_vec))
-    norm_factors_vec = numpy.zeros(len(causal_genes_vec))
     ones_vec = numpy.ones(len(causal_genes_vec))
+    scores_vec_normalized = numpy.zeros(len(causal_genes_vec))
 
     # calculate normalized scores
     for d in range(1, len(adjacency_matrices)):
         A = adjacency_matrices[d]
-        scores_vec += alpha ** d * A.dot(causal_genes_vec)
-        norm_factors_vec += (alpha / norm_alpha_div) ** d * A.dot(ones_vec)
+        scores_vec+= alpha ** d * A.dot(causal_genes_vec)
+        # numpy.savez(f"/home/kubicaj/calc/grexome-TIMC-Secondary-interactome/Interactome/debug/scores_d{d}_alpha001_dmax10_alphanorm1.npz", scores_vec)
+        norm_factors_vec = (alpha / norm_alpha_div) ** d * A.dot(ones_vec)
+        # numpy.savez(f"/home/kubicaj/calc/grexome-TIMC-Secondary-interactome/Interactome/debug/normFactors_d{d}_alpha001_dmax10_alphanorm1.npz", norm_factors_vec)
 
-    scores_vec_normalized = scores_vec / norm_factors_vec
+        scores_vec_normalized += scores_vec / norm_factors_vec
 
     # map ENSGs to scores
     scores = dict(zip(interactome.nodes(), scores_vec_normalized))
@@ -111,7 +112,7 @@ def main(interactome_file, causal_genes_file, gene2ENSG_file, patho, alpha, norm
     logger.info("Calculating scores")
     scores = calculate_scores(interactome, adjacency_matrices, causal_genes, alpha, norm_alpha_div)
 
-    logger.info("Printing scores")
+    logger.info("Printing scores to stdout")
     utils.scores_to_TSV(scores, ENSG2gene)
 
     logger.info("Done!")
@@ -141,18 +142,14 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # I don't know argparse but you have to make sure the required args were passed,
-    # check that the provided args are OK, and print a USAGE if checks fail
-
     try:
         main(interactome_file=args.interactome_file,
              causal_genes_file=args.causal_genes_file,
-             patho=args.patho,
              gene2ENSG_file=args.gene2ENSG_file,
+             patho=args.patho,
              alpha=args.alpha,
              norm_alpha_div=args.norm_alpha_div,
              max_power=args.max_power)
-        # this doesn't work, the default args defined for main() are ignored
 
     except Exception as e:
         # details on the issue should be in the exception name, print it to stderr and die
