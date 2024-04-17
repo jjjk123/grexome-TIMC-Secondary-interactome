@@ -74,7 +74,7 @@ def get_adjacency_matrices(interactome, max_power=5):
     # initialize, element at index 0 is never used
     adjacency_matrices = [0]
 
-    A = networkx.to_scipy_sparse_array(interactome, dtype=numpy.uint32)  # returns scipy.sparse._csr.csr_array
+    A = networkx.to_scipy_sparse_array(interactome, dtype=bool)  # returns scipy.sparse._csr.csr_array
     res = A
     # manually zero only the non-zero diagonal elements: this is identical to res.setdiag(0)
     # but faster and doesn't emit a warning (https://github.com/scipy/scipy/issues/11600)
