@@ -7,7 +7,7 @@ import pathlib
 
 import networkx
 
-from utils import parse_interactome, scores_to_TSV
+import utils
 
 # set up logger, using inherited config, in case we get called as a module
 logger = logging.getLogger(__name__)
@@ -27,18 +27,21 @@ def calculate_betweenness_centrality(interactome) -> dict:
 
     return scores
 
-
-
-def main(interactome_file, out_path):
+def main(interactome_file, gene2ENSG_file):
 
     logger.info("Parsing interactome")
-    interactome, genes = parse_interactome(interactome_file)
+    interactome = utils.parse_interactome(interactome_file)
 
-    logger.info("Calculating betweenness centrality")
-    betweenness_centrality = calculate_betweenness_centrality(interactome)
+    logger.info("Parsing gene-to-ENSG mapping")
+    (ENSG2gene, gene2ENSG) = utils.parse_gene2ENSG(gene2ENSG_file)
+
+    logger.info("Calculating scores")
+    scores = calculate_betweenness_centrality(interactome)
+
+    logger.info("Printing scores")
+    utils.scores_to_TSV(scores, ENSG2gene)
 
     logger.info("Done!")
-    scores_to_TSV(betweenness_centrality, out_path, file_name="scores_BC.tsv")
 
 
 if __name__ == "__main__":
@@ -55,14 +58,14 @@ if __name__ == "__main__":
         description="Calculate betweenness centrality for human interactome."
     )
 
-    parser.add_argument('-i', '--interactome_file', type=pathlib.Path)
-    parser.add_argument('-o', '--out_path', type=pathlib.Path)
+    parser.add_argument('-i', '--interactome_file', type=pathlib.Path, required=True)
+    parser.add_argument('--gene2ENSG_file', type=pathlib.Path, required=True)
 
     args = parser.parse_args()
 
     try:
         main(interactome_file=args.interactome_file,
-             out_path=args.out_path)
+             gene2ENSG_file=args.gene2ENSG_file)
     except Exception as e:
         # details on the issue should be in the exception name, print it to stderr and die
         sys.stderr.write("ERROR in " + script_name + " : " + repr(e) + "\n")
