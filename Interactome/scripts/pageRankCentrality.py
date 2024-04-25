@@ -41,8 +41,6 @@ def calculate_scores(interactome, adjacency_matrices, causal_genes, alpha) -> di
         ni += 1
 
     scores_vec = numpy.zeros(len(causal_genes_vec))
-    norm_factors_vec = numpy.zeros(len(causal_genes_vec))
-    ones_vec = numpy.ones(len(causal_genes_vec))
 
     # calculate normalized scores
     for d in range(1, len(adjacency_matrices)):
@@ -78,8 +76,8 @@ def get_adjacency_matrices(interactome, max_power=5):
     nonzero, = res.diagonal().nonzero()
     res[nonzero, nonzero] = 0
     # column-wise normalization
-    res = res / res.sum(axis=0)
-    adjacency_matrices.append(res)
+    res_norm = res / res.sum(axis=0)
+    adjacency_matrices.append(res_norm)
 
     # @ - matrix multiplication
     for power in range(2, max_power + 1):
@@ -87,7 +85,8 @@ def get_adjacency_matrices(interactome, max_power=5):
         # again, same as res.setdiag(0) but faster and quiet
         nonzero, = res.diagonal().nonzero()
         res[nonzero, nonzero] = 0
-        adjacency_matrices.append(res)
+        res_norm = res / res.sum(axis=0)
+        adjacency_matrices.append(res_norm)
 
     logger.debug("Done building %i matrices", len(adjacency_matrices) - 1)
     return adjacency_matrices
