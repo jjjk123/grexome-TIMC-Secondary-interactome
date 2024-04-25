@@ -2,6 +2,8 @@ import logging
 import os
 import sys
 
+import pathlib
+
 import argparse
 
 import newCentrality
@@ -28,12 +30,8 @@ def leave_one_out(interactome, adjacency_matrices, causal_genes, alpha, norm_alp
         scores = newCentrality.calculate_scores(interactome, adjacency_matrices, causal_genes, alpha, norm_alpha_div)
         scores_left_out[left_out] = scores[left_out]
         causal_genes[left_out] = 1
-        
-        # do we really want these per-left-out scores? if yes scores_to_TSV needs an
-        # outfile arg (which I removed, would need to be added back)
-        # utils.scores_to_TSV(scores, out_path, file_name=f"{left_out}_scores.tsv")
 
-    return(scores_left_out)
+    return scores_left_out 
 
 
 def main(interactome_file, causal_genes_file, gene2ENSG_file, patho, alpha, norm_alpha_div, max_power):
@@ -73,21 +71,21 @@ if __name__ == "__main__":
         description="Calculate leave-one-out for new centrality of infertility based on the guilt-by-association approach."
     )
 
-    parser.add_argument('-i', '--interactome_file', type=str)
-    parser.add_argument('--causal_genes_file', type=str)
-    parser.add_argument('--patho', type=str)
-    parser.add_argument('--gene2ENSG_file', type=str)
-    parser.add_argument('--alpha', type=float)
-    parser.add_argument('--norm_alpha_div', type=float)
-    parser.add_argument('--max_power', type=int) 
+    parser.add_argument('-i', '--interactome_file', type=pathlib.Path, required=True)
+    parser.add_argument('--causal_genes_file', type=pathlib.Path, required=True)
+    parser.add_argument('--gene2ENSG_file', type=pathlib.Path, required=True)
+    parser.add_argument('--patho', default='MMAF', type=str)
+    parser.add_argument('--alpha', default=0.5, type=float)
+    parser.add_argument('--norm_alpha_div', default=1.0, type=float)
+    parser.add_argument('--max_power', default=5, type=int) 
 
     args = parser.parse_args()
 
     try:
         main(interactome_file=args.interactome_file,
              causal_genes_file=args.causal_genes_file,
-             patho=args.patho,
              gene2ENSG_file=args.gene2ENSG_file,
+             patho=args.patho,
              alpha=args.alpha,
              norm_alpha_div=args.norm_alpha_div,
              max_power=args.max_power)
