@@ -50,6 +50,9 @@ def calculate_scores(interactome, adjacency_matrices, causal_genes, alpha, norm_
         scores_vec += alpha ** d * A.dot(causal_genes_vec)
         norm_factors_vec += (alpha / norm_alpha_div) ** d * A.dot(ones_vec)
 
+        # numpy.savez(f"/home/kubicaj/calc/grexome-TIMC-Secondary-interactome/Interactome/debug/New_centrality_v8/scores_d{d}_alpha01_dmax10_alphanorm10.npz", scores_vec)
+        # numpy.savez(f"/home/kubicaj/calc/grexome-TIMC-Secondary-interactome/Interactome/debug/New_centrality_v8/normFactors_d{d}_alpha01_dmax10_alphanorm10.npz", norm_factors_vec)
+
     scores_vec_normalized = scores_vec / norm_factors_vec
 
     # map ENSGs to scores
