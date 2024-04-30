@@ -137,3 +137,11 @@ python scripts/leave_one_out.py -i ~/calc/input/Interactome_human.sif --causal_g
 python scripts/pageRankCentrality.py -i ~/calc/input/Interactome_human.sif --causal_genes_file ~/calc/input/causalGenes_allPhenotypes.csv --gene2ENSG_file ~/calc/input/canonicalGenes.tsv 1>~/calc/output/PageRank/alpha01_dmax10/scores.tsv 2>~/calc/output/PageRank/alpha01_dmax10/log.txt --alpha 0.1 --max_power 10
 # leave-one-out:
 python scripts/leave_one_out_pageRank.py -i ~/calc/input/Interactome_human.sif --causal_genes_file ~/calc/input/causalGenes_allPhenotypes.csv --gene2ENSG_file ~/calc/input/canonicalGenes.tsv 1>~/calc/output/PageRank/alpha01_dmax10/scores_leave_one_out.tsv 2>~/calc/output/PageRank/alpha01_dmax10/log_leave_one_out.txt --alpha 0.1 --max_power 10
+
+# New centrality v8 (new git branch)
+# example usage as New centrality v6
+
+# Download GTEx from https://gtexportal.org/home/downloads/egtex/proteomics
+wget https://storage.googleapis.com/egtex/proteomics/proteomics-data/Table_S1_gene_info_at_protein_level.xlsx
+# modify to include only testis and save to 
+GTEx_data.xlsx
