@@ -141,7 +141,5 @@ python scripts/leave_one_out_pageRank.py -i ~/calc/input/Interactome_human.sif -
 # New centrality v8 (new git branch)
 # example usage as New centrality v6
 
-# Download GTEx from https://gtexportal.org/home/downloads/egtex/proteomics
-wget https://storage.googleapis.com/egtex/proteomics/proteomics-data/Table_S1_gene_info_at_protein_level.xlsx
-# modify to include only testis and save to 
-GTEx_data.xlsx
+# Get GTEx data (testis expression) from grexome-TIMC-Secondary-interactome/GTEX_Data/E-MTAB-5214-query-results.tpms.tsv
+# do Fisher test for testis enrichment of predicted MMAF genes in jupyter_notebooks/analyze_scores_newCentrality.ipynb
