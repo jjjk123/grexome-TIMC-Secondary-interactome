@@ -41,8 +41,6 @@ def calculate_scores(interactome, adjacency_matrices, causal_genes, alpha) -> di
         ni += 1
 
     scores_vec = numpy.zeros(len(causal_genes_vec))
-    norm_factors_vec = numpy.zeros(len(causal_genes_vec))
-    ones_vec = numpy.ones(len(causal_genes_vec))
 
     # calculate normalized scores
     for d in range(1, len(adjacency_matrices)):
@@ -71,15 +69,17 @@ def get_adjacency_matrices(interactome, max_power=5):
     # initialize, element at index 0 is never used
     adjacency_matrices = [0]
 
-    A = networkx.to_scipy_sparse_array(interactome, dtype=numpy.uint32)  # returns scipy.sparse._csr.csr_array
+    A = networkx.to_scipy_sparse_array(interactome, dtype=numpy.float16)  # returns scipy.sparse._csr.csr_array
     res = A
     # manually zero only the non-zero diagonal elements: this is identical to res.setdiag(0)
     # but faster and doesn't emit a warning (https://github.com/scipy/scipy/issues/11600)
     nonzero, = res.diagonal().nonzero()
     res[nonzero, nonzero] = 0
     # column-wise normalization
-    res = res / res.sum(axis=0)
-    adjacency_matrices.append(res)
+    column_sum = res.sum(axis=0)
+    column_sum[column_sum == 0] = 1
+    res_norm = res / column_sum
+    adjacency_matrices.append(res_norm)
 
     # @ - matrix multiplication
     for power in range(2, max_power + 1):
@@ -87,7 +87,11 @@ def get_adjacency_matrices(interactome, max_power=5):
         # again, same as res.setdiag(0) but faster and quiet
         nonzero, = res.diagonal().nonzero()
         res[nonzero, nonzero] = 0
-        adjacency_matrices.append(res)
+        # column-wise normalization
+        column_sum = res.sum(axis=0)
+        column_sum[column_sum == 0] = 1
+        res_norm = res / column_sum
+        adjacency_matrices.append(res_norm)
 
     logger.debug("Done building %i matrices", len(adjacency_matrices) - 1)
     return adjacency_matrices
