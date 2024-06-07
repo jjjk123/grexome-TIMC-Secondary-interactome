@@ -1,6 +1,7 @@
 import logging
 import networkx
 import numpy
+import scipy
 import os
 import sys
 
@@ -69,29 +70,22 @@ def get_adjacency_matrices(interactome, max_power=5):
     # initialize, element at index 0 is never used
     adjacency_matrices = [0]
 
-    A = networkx.to_scipy_sparse_array(interactome, dtype=numpy.float16)  # returns scipy.sparse._csr.csr_array
-    res = A
-    # manually zero only the non-zero diagonal elements: this is identical to res.setdiag(0)
-    # but faster and doesn't emit a warning (https://github.com/scipy/scipy/issues/11600)
-    nonzero, = res.diagonal().nonzero()
-    res[nonzero, nonzero] = 0
-    # column-wise normalization
-    column_sum = res.sum(axis=0)
-    column_sum[column_sum == 0] = 1
-    res_norm = res / column_sum
-    adjacency_matrices.append(res_norm)
+    A = networkx.to_scipy_sparse_array(interactome, dtype=bool)  # returns scipy.sparse._csr.csr_array
+    ApowK = scipy.sparse.csr_array(scipy.sparse.identity(len(interactome.nodes()), dtype=bool, format='csr'))
 
-    # @ - matrix multiplication
-    for power in range(2, max_power + 1):
-        res = res @ A
-        # again, same as res.setdiag(0) but faster and quiet
-        nonzero, = res.diagonal().nonzero()
-        res[nonzero, nonzero] = 0
-        # column-wise normalization
-        column_sum = res.sum(axis=0)
-        column_sum[column_sum == 0] = 1
-        res_norm = res / column_sum
-        adjacency_matrices.append(res_norm)
+    for power in range(1, max_power + 1):
+        # @ - matrix multiplication
+        ApowK @= A
+        # manually zero only the non-zero diagonal elements: this is identical to res.setdiag(0)
+        # but faster and doesn't emit a warning (https://github.com/scipy/scipy/issues/11600)
+        nonzero = ApowK.diagonal().nonzero()
+        ApowK[nonzero, nonzero] = 0
+        # row-wise normalization
+        row_sum = ApowK.sum(axis=1)
+        row_sum[row_sum == 0] = 1
+        ApowK_norm = ApowK.T / row_sum
+        ApowK_norm = ApowK_norm.T
+        adjacency_matrices.append(ApowK_norm)
 
     logger.debug("Done building %i matrices", len(adjacency_matrices) - 1)
     return adjacency_matrices
